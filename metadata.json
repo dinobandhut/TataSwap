@@ -1,0 +1,6 @@
+{
+  "name": "TataSwap",
+  "description": "Permissionless Decentralized Cryptocurrency Exchange (DEX) on BNB Smart Chain with AMM Swaps, Liquidity Pools, and Automated Listing Fee Collection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
