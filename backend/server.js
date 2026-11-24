@@ -101,6 +101,25 @@ function isValidTxHash(hash) {
   return typeof hash === 'string' && /^0x[a-fA-F0-9]{64}$/.test(hash.trim());
 }
 
+// 0. Serve TataSwap Web DEX static files (if ../website exists) & Root Status Endpoint
+const websiteDir = path.join(__dirname, '..', 'website');
+if (fs.existsSync(websiteDir)) {
+  app.use(express.static(websiteDir));
+}
+
+app.get('/', (req, res) => {
+  const indexPath = path.join(websiteDir, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  res.json({
+    status: 'ok',
+    protocol: 'TataSwap DEX Backend API',
+    officialFeeReceiver: OFFICIAL_FEE_RECEIVER,
+    endpoints: ['/health', '/api/stats', '/api/tokens', '/api/listings', '/api/rpc/inspect/:address'],
+  });
+});
+
 // 1. Health Check (Verifies PostgreSQL + Live Blockchain RPC)
 app.get('/health', async (req, res) => {
   const status = {
