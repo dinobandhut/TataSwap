@@ -71,12 +71,15 @@ class DexRepository(
     }
 
     fun connectWallet(address: String) {
-        _connectedWallet.value = address
-        refreshWalletBalance()
+        _connectedWallet.value = address.trim()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            refreshWalletBalance()
+        }
     }
 
     fun disconnectWallet() {
         _connectedWallet.value = null
+        _walletNativeBalance.value = 0.0
     }
 
     suspend fun refreshNetworkStatus() {
@@ -130,12 +133,92 @@ class DexRepository(
         return true
     }
 
-    fun refreshWalletBalance() {
-        val address = _connectedWallet.value ?: return
+    suspend fun refreshWalletBalance() {
+        val rawAddress = _connectedWallet.value ?: return
+        val cleanAddr = rawAddress.substringBefore(" ").trim()
         val net = _currentNetwork.value
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).run {
-            // Background balance check
+
+        val isRealEvm = net.isEvm && cleanAddr.startsWith("0x") && cleanAddr.length == 42
+        val isRealSol = !net.isEvm && !cleanAddr.startsWith("0x") && cleanAddr.length in 32..44
+        if (!isRealEvm && !isRealSol) return
+
+        val nativeRes = rpcClient.getNativeBalance(net.rpcUrl, cleanAddr, net.isEvm)
+        nativeRes.onSuccess { nativeBal ->
+            _walletNativeBalance.value = nativeBal
+            _tokens.update { list ->
+                list.map { t ->
+                    if (t.symbol.equals(net.symbol, ignoreCase = true)) {
+                        t.copy(userBalance = nativeBal)
+                    } else t
+                }
+            }
         }
+
+        // Sync real BEP-20 token balances when connected to BSC Mainnet
+        if (isRealEvm && net.id == "bsc_mainnet") {
+            val currentList = _tokens.value
+            val updatedBalances = mutableMapOf<String, Double>()
+            for (token in currentList) {
+                if (token.symbol == "BNB" || token.symbol == "SOL" || !token.address.startsWith("0x") || token.address.length != 42) continue
+                val balRes = rpcClient.getErc20Balance(net.rpcUrl, token.address, cleanAddr, token.decimals)
+                balRes.onSuccess { bal ->
+                    updatedBalances[token.address.lowercase()] = bal
+                }
+            }
+            if (updatedBalances.isNotEmpty()) {
+                _tokens.update { list ->
+                    list.map { t ->
+                        val synced = updatedBalances[t.address.lowercase()]
+                        if (synced != null) t.copy(userBalance = synced) else t
+                    }
+                }
+            }
+        }
+    }
+
+    fun buildWalletDappDeepLink(walletType: String): String {
+        val targetUrl = "https://tataswap.onrender.com/dex.html"
+        return when (walletType.lowercase()) {
+            "metamask" -> "https://link.metamask.io/dapp/tataswap.onrender.com/dex.html"
+            "trust" -> "https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetUrl"
+            "phantom" -> "https://phantom.app/ul/browse/$targetUrl"
+            else -> targetUrl
+        }
+    }
+
+    fun buildNativeTransferDeepLink(toAddress: String, amount: Double, walletType: String = "metamask"): String {
+        val net = _currentNetwork.value
+        val cleanTo = toAddress.trim()
+        if (!net.isEvm) {
+            val formatted = "%.6f".format(java.util.Locale.US, amount.coerceAtLeast(0.0))
+            return "solana:$cleanTo?amount=$formatted"
+        }
+        val wei = java.math.BigDecimal.valueOf(amount.coerceAtLeast(0.0))
+            .multiply(java.math.BigDecimal.TEN.pow(18))
+            .toBigInteger()
+            .toString()
+        return if (walletType.equals("trust", ignoreCase = true)) {
+            "ethereum:$cleanTo@${net.chainId}?value=$wei"
+        } else {
+            "https://link.metamask.io/send/$cleanTo@${net.chainId}?value=$wei"
+        }
+    }
+
+    fun recordExternalSend(toAddress: String, amount: Double, symbol: String): TransactionRecord {
+        val hash = generateTxHash()
+        val tx = TransactionRecord(
+            id = UUID.randomUUID().toString(),
+            txHash = hash,
+            type = TransactionType.SWAP,
+            title = "Send $amount $symbol to ${toAddress.take(8)}...${toAddress.takeLast(4)}",
+            description = "Initiated real ${_currentNetwork.value.name} transfer via external Web3 wallet ($toAddress)",
+            tokenInSymbol = symbol,
+            amountIn = amount,
+            status = "Wallet Opened",
+            networkName = _currentNetwork.value.name
+        )
+        _transactions.update { listOf(tx) + it }
+        return tx
     }
 
     suspend fun inspectContractOnChain(address: String): Result<TokenContractInfo> {

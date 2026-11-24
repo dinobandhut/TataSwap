@@ -316,7 +316,11 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
                         pools = pools,
                         onAddLiquidityForPool = { viewModel.selectPoolForAdd(it) },
                         onRemoveLiquidityForPool = { viewModel.selectPoolForRemove(it) },
-                        onConnectWallet = { viewModel.openWalletModal() }
+                        onConnectWallet = { viewModel.openWalletModal() },
+                        onRefreshPortfolio = { viewModel.refreshPortfolio() },
+                        onSendRealCrypto = { toAddr, amt, sym, walletType ->
+                            viewModel.prepareRealCryptoTransfer(toAddr, amt, sym, walletType)
+                        }
                     )
                     DexScreen.TRANSACTION_HISTORY -> TransactionHistoryScreen(
                         transactions = transactions,

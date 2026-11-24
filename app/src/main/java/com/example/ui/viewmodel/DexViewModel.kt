@@ -430,6 +430,31 @@ class DexViewModel(
         }
     }
 
+    // --- PORTFOLIO & REAL CRYPTO DEEP-LINK TRANSFERS ---
+    fun refreshPortfolio() {
+        viewModelScope.launch {
+            repository.refreshNetworkStatus()
+            _snackbarMessage.emit("Synced live market prices & on-chain wallet balances!")
+        }
+    }
+
+    fun getWalletDappUrl(walletType: String): String {
+        return repository.buildWalletDappDeepLink(walletType)
+    }
+
+    fun prepareRealCryptoTransfer(
+        toAddress: String,
+        amount: Double,
+        symbol: String,
+        walletType: String = "metamask"
+    ): String {
+        repository.recordExternalSend(toAddress, amount, symbol)
+        viewModelScope.launch {
+            _snackbarMessage.emit("Opening $walletType to sign real $amount $symbol transfer...")
+        }
+        return repository.buildNativeTransferDeepLink(toAddress, amount, walletType)
+    }
+
     // --- WALLET & NETWORK MODALS ---
     fun openWalletModal() { _showWalletModal.value = true }
     fun closeWalletModal() { _showWalletModal.value = false }

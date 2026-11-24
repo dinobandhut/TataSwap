@@ -86,4 +86,15 @@ class ExampleUnitTest {
         assertEquals(initialUsdt - 5.0, repo.tokens.value.first { it.symbol == "USDT" }.userBalance, 0.0001)
         assertEquals(initialFeesCollected + 5.0, repo.protocolStats.value.totalListingFeesCollectedUsdt, 0.0001)
     }
+
+    @Test
+    fun `verify wallet deep links and real crypto transfer URI builder`() {
+        val repo = DexRepository()
+        assertTrue(repo.buildWalletDappDeepLink("metamask").startsWith("https://link.metamask.io/dapp/"))
+        assertTrue(repo.buildWalletDappDeepLink("trust").startsWith("https://link.trustwallet.com/open_url"))
+        assertTrue(repo.buildWalletDappDeepLink("phantom").startsWith("https://phantom.app/ul/browse/"))
+
+        val sendUri = repo.buildNativeTransferDeepLink("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", 1.0, "metamask")
+        assertTrue(sendUri.contains("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4@810161?value=1000000000000000000"))
+    }
 }

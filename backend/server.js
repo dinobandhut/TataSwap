@@ -231,12 +231,12 @@ app.get('/api/rpc/inspect/:address', async (req, res) => {
   }
 });
 
-// 2b. Live Market Prices (CoinGecko + CryptoCompare fallback with 30s cache)
+// 2b. Live Market Prices (Binance Data Vision + CoinGecko + CryptoCompare fallback with 20s cache)
 let priceCache = { data: null, updatedAt: 0 };
 
 async function fetchLivePrices() {
   const now = Date.now();
-  if (priceCache.data && now - priceCache.updatedAt < 30000) {
+  if (priceCache.data && now - priceCache.updatedAt < 20000) {
     return priceCache.data;
   }
 
@@ -245,25 +245,52 @@ async function fetchLivePrices() {
     USDT: { usd: 1.0, change24h: 0.0, source: 'peg' },
   };
 
+  // 1. Binance Public Market Data API (No API key, high rate limit)
   try {
-    const cgRes = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether&vs_currencies=usd&include_24hr_change=true'
+    const binRes = await fetch(
+      'https://data-api.binance.vision/api/v3/ticker/24hr?symbols=' +
+        encodeURIComponent(JSON.stringify(['ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'POLUSDT', 'BTCUSDT', 'CAKEUSDT']))
     );
-    if (cgRes.ok) {
-      const cg = await cgRes.json();
-      if (cg.ethereum?.usd) prices.ETH = { usd: cg.ethereum.usd, change24h: cg.ethereum.usd_24h_change || 0, source: 'coingecko' };
-      if (cg.binancecoin?.usd) prices.BNB = { usd: cg.binancecoin.usd, change24h: cg.binancecoin.usd_24h_change || 0, source: 'coingecko' };
-      const polObj = cg['polygon-ecosystem-token'] || cg['matic-network'];
-      if (polObj?.usd) prices.POL = { usd: polObj.usd, change24h: polObj.usd_24h_change || 0, source: 'coingecko' };
-      if (cg.coredaoorg?.usd) prices.CORE = { usd: cg.coredaoorg.usd, change24h: cg.coredaoorg.usd_24h_change || 0, source: 'coingecko' };
-      if (cg.solana?.usd) prices.SOL = { usd: cg.solana.usd, change24h: cg.solana.usd_24h_change || 0, source: 'coingecko' };
-      if (cg.tether?.usd) prices.USDT = { usd: cg.tether.usd, change24h: cg.tether.usd_24h_change || 0, source: 'coingecko' };
+    if (binRes.ok) {
+      const rows = await binRes.json();
+      const mapSym = { ETHUSDT: 'ETH', BNBUSDT: 'BNB', SOLUSDT: 'SOL', POLUSDT: 'POL', BTCUSDT: 'BTCB', CAKEUSDT: 'CAKE' };
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const sym = mapSym[row.symbol];
+          const usd = parseFloat(row.lastPrice);
+          const chg = parseFloat(row.priceChangePercent || '0');
+          if (sym && usd > 0) {
+            prices[sym] = { usd, change24h: chg, source: 'binance' };
+          }
+        }
+      }
     }
   } catch (err) {
-    console.warn('[Prices] CoinGecko fetch skipped:', err.message);
+    console.warn('[Prices] Binance Data Vision skipped:', err.message);
   }
 
-  // Fallback / fill any missing symbols from CryptoCompare
+  // 2. CoinGecko (fills CORE + any missing tokens)
+  if (!prices.CORE || !prices.ETH || !prices.BNB || !prices.SOL || !prices.POL) {
+    try {
+      const cgRes = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether&vs_currencies=usd&include_24hr_change=true'
+      );
+      if (cgRes.ok) {
+        const cg = await cgRes.json();
+        if (!prices.ETH && cg.ethereum?.usd) prices.ETH = { usd: cg.ethereum.usd, change24h: cg.ethereum.usd_24h_change || 0, source: 'coingecko' };
+        if (!prices.BNB && cg.binancecoin?.usd) prices.BNB = { usd: cg.binancecoin.usd, change24h: cg.binancecoin.usd_24h_change || 0, source: 'coingecko' };
+        const polObj = cg['polygon-ecosystem-token'] || cg['matic-network'];
+        if (!prices.POL && polObj?.usd) prices.POL = { usd: polObj.usd, change24h: polObj.usd_24h_change || 0, source: 'coingecko' };
+        if (!prices.CORE && cg.coredaoorg?.usd) prices.CORE = { usd: cg.coredaoorg.usd, change24h: cg.coredaoorg.usd_24h_change || 0, source: 'coingecko' };
+        if (!prices.SOL && cg.solana?.usd) prices.SOL = { usd: cg.solana.usd, change24h: cg.solana.usd_24h_change || 0, source: 'coingecko' };
+        if (cg.tether?.usd) prices.USDT = { usd: cg.tether.usd, change24h: cg.tether.usd_24h_change || 0, source: 'coingecko' };
+      }
+    } catch (err) {
+      console.warn('[Prices] CoinGecko fetch skipped:', err.message);
+    }
+  }
+
+  // 3. CryptoCompare fallback for any remaining missing tokens
   if (!prices.ETH || !prices.BNB || !prices.SOL || !prices.CORE || !prices.POL) {
     try {
       const ccRes = await fetch(
@@ -291,7 +318,9 @@ async function fetchLivePrices() {
     prices,
     updatedAt: new Date(now).toISOString(),
   };
-  priceCache = { data: result, updatedAt: now };
+  if (prices.ETH || prices.BNB || prices.SOL) {
+    priceCache = { data: result, updatedAt: now };
+  }
   return result;
 }
 

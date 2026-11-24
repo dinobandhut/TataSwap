@@ -116,6 +116,7 @@
               <option value="TATA">TATA</option><option value="BNB" selected>BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="SOL">SOL</option><option value="USDT">USDT</option>
             </select>
           </div>
+          <div id="swapPayUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
         </div>
         <div class="flex justify-center -my-2">
           <button onclick="flipSwap()" class="w-8 h-8 rounded-full card-dark border border-yellow-500/50 text-yellow-400 font-bold text-sm">⇅</button>
@@ -128,6 +129,7 @@
               <option value="USDT" selected>USDT</option><option value="TATA">TATA</option><option value="BNB">BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="SOL">SOL</option>
             </select>
           </div>
+          <div id="swapOutUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
         </div>
         <div class="card-darker rounded-xl p-3 text-xs text-gray-400 space-y-1">
           <div class="flex justify-between"><span>Rate</span><span id="swapRate" class="text-white">1 BNB = 624.50 USDT</span></div>
@@ -221,10 +223,10 @@
     <!-- 7. ADD LIQUIDITY -->
     <section id="page-add-liq" class="dex-page hidden max-w-lg mx-auto">
       <div class="card-dark rounded-2xl p-6 space-y-4">
-        <h2 class="text-xl font-bold">Add Liquidity (BNB / USDT)</h2>
-        <input type="number" placeholder="BNB Amount" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-sm text-white" />
-        <input type="number" placeholder="USDT Amount" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-sm text-white" />
-        <button onclick="alert('Approve tokens and call TataSwapRouter.addLiquidity() after contract deployment.')" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Supply Liquidity</button>
+        <h2 class="text-xl font-bold">Add Liquidity</h2>
+        <input id="addLiqAmtA" type="number" step="any" placeholder="Native / Token A Amount" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-sm text-white" />
+        <input id="addLiqAmtB" type="number" step="any" placeholder="USDT / Token B Amount" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-sm text-white" />
+        <button onclick="submitAddLiquidity()" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Supply Liquidity</button>
       </div>
     </section>
 
@@ -234,20 +236,55 @@
         <h2 class="text-xl font-bold">Remove Liquidity</h2>
         <label class="text-xs text-gray-400">Percentage to Withdraw: <span id="remPctLabel" class="text-yellow-400 font-bold">50%</span></label>
         <input type="range" min="1" max="100" value="50" oninput="document.getElementById('remPctLabel').innerText=this.value+'%'" class="w-full accent-yellow-400" />
-        <button onclick="alert('Calls TataSwapPool.burn() to withdraw proportional token reserves.')" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm">Withdraw Liquidity</button>
+        <button onclick="submitRemoveLiquidity()" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm">Withdraw Liquidity</button>
       </div>
     </section>
 
-    <!-- 9. PORTFOLIO -->
-    <section id="page-portfolio" class="dex-page hidden max-w-2xl mx-auto">
-      <div class="card-dark rounded-2xl p-6 space-y-3">
-        <h2 class="text-xl font-bold">Wallet Portfolio</h2>
-        <div class="card-darker rounded-xl p-4">
+    <!-- 9. PORTFOLIO & REAL COIN TRANSFER -->
+    <section id="page-portfolio" class="dex-page hidden max-w-2xl mx-auto space-y-4">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xl font-bold">Wallet Portfolio (Live Market Value)</h2>
+          <button onclick="refreshBalance()" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-bold">Refresh RPC</button>
+        </div>
+        <div class="card-darker rounded-xl p-4 space-y-2">
           <div class="text-xs text-gray-400">Connected Address</div>
           <div id="portAddr" class="text-sm font-mono text-yellow-400 font-bold break-all">Not connected</div>
-          <div class="text-xs text-gray-400 mt-3">On-Chain Balance</div>
-          <div id="portBal" class="text-2xl font-black text-white">--</div>
+          <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-800">
+            <div>
+              <div class="text-xs text-gray-400">On-Chain Native Balance</div>
+              <div id="portBal" class="text-xl font-black text-white">--</div>
+            </div>
+            <div>
+              <div class="text-xs text-gray-400">Live Market USD Value</div>
+              <div id="portUsd" class="text-xl font-black text-emerald-400">$0.00</div>
+            </div>
+          </div>
         </div>
+        <div>
+          <div class="text-xs font-bold text-gray-400 uppercase mb-2">Token Holdings &amp; Live USD Prices</div>
+          <div id="portTokensList" class="space-y-2 text-xs"></div>
+        </div>
+      </div>
+
+      <!-- SEND REAL CRYPTO TRANSACTION -->
+      <div class="card-dark rounded-2xl p-6 space-y-3 border-emerald-500/30">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white"><i class="fas fa-paper-plane text-emerald-400 mr-2"></i>Send Real Crypto Coin</h3>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">MAINNET TX</span>
+        </div>
+        <p class="text-xs text-gray-400">Broadcast real on-chain coin or token transfers directly via MetaMask, Trust Wallet, or Phantom.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <select id="sendAssetSelect" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-yellow-400">
+            <option value="NATIVE">Native Coin (Active Chain)</option>
+            <option value="USDT">USDT (ERC-20 / BEP-20)</option>
+            <option value="TATA">TATA Token</option>
+          </select>
+          <input id="sendAmountInput" type="number" step="any" placeholder="Amount (e.g. 0.01)" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs text-white sm:col-span-2" />
+        </div>
+        <input id="sendToInput" placeholder="Recipient 0x... or Solana Address" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-mono text-white" />
+        <button onclick="sendRealCrypto()" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Sign &amp; Send Real Transaction</button>
+        <div id="sendTxStatus" class="text-xs text-center hidden"></div>
       </div>
     </section>
 
@@ -255,7 +292,7 @@
     <section id="page-history" class="dex-page hidden max-w-3xl mx-auto">
       <div class="card-dark rounded-2xl p-6 space-y-3">
         <h2 class="text-xl font-bold">Transaction History</h2>
-        <div id="historyList" class="text-xs text-gray-400">Connect your Backend API URL on the landing page to load indexed listing &amp; swap events.</div>
+        <div id="historyList" class="text-xs text-gray-400">Real on-chain swaps, transfers, and listings appear here automatically.</div>
       </div>
     </section>
 
@@ -264,24 +301,69 @@
       <h2 class="text-xl font-bold">Protocol Analytics</h2>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Swap Fee Rule</div><div class="text-lg font-bold mt-1">0.20% LP / 0.05% Protocol</div></div>
-        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Listing Fee Rule</div><div class="text-lg font-bold text-yellow-400 mt-1">5.00 USDT / Listing</div></div>
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Listing Fee Rule</div><div class="text-lg font-bold text-yellow-400 mt-1">5.00 USDT / Listing (Owner Free)</div></div>
         <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Owner Receiver</div><div class="text-xs font-mono text-cyan-400 mt-2 break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</div></div>
       </div>
     </section>
 
-    <!-- 12. ADMIN DASHBOARD -->
-    <section id="page-admin" class="dex-page hidden max-w-2xl mx-auto">
+    <!-- 12. ADMIN DASHBOARD & SMART CONTRACT CONFIG -->
+    <section id="page-admin" class="dex-page hidden max-w-2xl mx-auto space-y-4">
       <div class="card-dark rounded-2xl p-6 space-y-4 border-yellow-500/40">
         <h2 class="text-xl font-bold">DEX Owner &amp; Admin Dashboard</h2>
         <div class="card-darker rounded-xl p-4 text-xs space-y-2">
           <div>Official Owner &amp; Fee Receiver: <span class="font-mono text-cyan-400 font-bold break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</span></div>
-          <div>Default Listing Fee: <strong class="text-yellow-400">5.00 USDT</strong></div>
+          <div>User Listing Fee: <strong class="text-yellow-400">5.00 USDT</strong> | Owner Fee: <strong class="text-emerald-400">0.00 USDT (Exempt)</strong></div>
           <div>Contract Security: <span class="text-emerald-400">OnlyOwner • ReentrancyGuard • Pausable</span></div>
+        </div>
+        <div class="card-darker rounded-xl p-4 space-y-3 text-xs">
+          <div class="font-bold text-white">Deployed Mainnet Contracts (Optional Custom Router/Listing)</div>
+          <input id="cfgRouterAddr" placeholder="Deployed TataSwapRouter.sol (0x...)" class="w-full bg-[#090c12] border border-gray-700 rounded-lg p-2.5 font-mono text-white" />
+          <input id="cfgListingAddr" placeholder="Deployed TataSwapListingFee.sol (0x...)" class="w-full bg-[#090c12] border border-gray-700 rounded-lg p-2.5 font-mono text-white" />
+          <button onclick="saveContractConfig()" class="px-4 py-2 rounded-lg bg-cyan-500 text-black font-bold">Save Contract Addresses</button>
+          <span id="cfgSaveMsg" class="text-emerald-400 ml-2 hidden">Saved!</span>
         </div>
       </div>
     </section>
 
   </main>
+
+  <!-- WEB3 WALLET CONNECT MODAL (Works in Google Chrome Mobile + Desktop + DApp Browsers) -->
+  <div id="walletModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="card-dark rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-extrabold text-white">Connect Web3 Wallet</h3>
+        <button onclick="closeWalletModal()" class="text-gray-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+      <div class="space-y-2">
+        <button onclick="connectInjectedWallet()" class="w-full py-3 px-4 rounded-xl gold-bg font-extrabold text-xs flex items-center justify-between">
+          <span><i class="fas fa-plug mr-2"></i>Connect Browser Wallet (MetaMask / Trust / Extension)</span>
+          <span>&rarr;</span>
+        </button>
+        <div class="text-[11px] text-gray-400 pt-1 font-semibold">Using Google Chrome on Android / iPhone? Open directly inside your Wallet App:</div>
+        <div class="grid grid-cols-1 gap-2">
+          <a id="deepLinkMetaMask" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-orange-500/15 border border-orange-500/40 text-orange-300 font-bold text-xs flex items-center justify-between">
+            <span>🦊 Open in MetaMask Mobile App</span><span>Launch &nearr;</span>
+          </a>
+          <a id="deepLinkTrust" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-between">
+            <span>🛡️ Open in Trust Wallet App</span><span>Launch &nearr;</span>
+          </a>
+          <a id="deepLinkPhantom" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center justify-between">
+            <span>👻 Open in Phantom App (Solana / EVM)</span><span>Launch &nearr;</span>
+          </a>
+        </div>
+      </div>
+      <div class="border-t border-gray-800 pt-3 space-y-2">
+        <div class="text-[11px] text-gray-400 font-semibold">Or Connect Wallet Address directly in Chrome (Live RPC Balance &amp; Portfolio):</div>
+        <div class="flex gap-2">
+          <input id="manualWalletInput" placeholder="Paste 0x... or Solana Address" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
+          <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
+        </div>
+        <button onclick="connectOwnerWalletDirect()" class="w-full py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
+          👑 Connect App Owner Wallet (0xD9e5...1CA4 • 0 Listing Fee)
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="dex.js"></script>
 </body>

@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,8 +9,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -282,7 +287,17 @@ fun WalletConnectDialog(
     onDismiss: () -> Unit
 ) {
     var inputAddress by remember { mutableStateOf("") }
+    var addressError by remember { mutableStateOf<String?>(null) }
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    fun openExternalUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            context.startActivity(intent)
+        } catch (_: Exception) {
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -302,8 +317,10 @@ fun WalletConnectDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (connectedAddress != null) {
                     Card(
@@ -338,6 +355,26 @@ fun WalletConnectDialog(
                         }
                     }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html") },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("MetaMask", fontSize = 12.sp, color = BnbGold)
+                        }
+                        OutlinedButton(
+                            onClick = { openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=https://tataswap.onrender.com/dex.html") },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Trust Wallet", fontSize = 12.sp, color = NeonCyan)
+                        }
+                    }
+
                     Button(
                         onClick = onDisconnect,
                         colors = ButtonDefaults.buttonColors(containerColor = CryptoRed),
@@ -350,43 +387,90 @@ fun WalletConnectDialog(
                     }
                 } else {
                     Text(
-                        text = "Connect with popular mobile Web3 wallets or enter your BSC wallet address:",
+                        text = "Open directly in MetaMask / Trust Wallet / Phantom for real on-chain signing, or paste your wallet address to track live balances:",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
 
-                    // MetaMask Option
+                    // MetaMask Deep Link Option
                     Surface(
-                        onClick = { onConnectCustom("0x71C...a49B (MetaMask)") },
+                        onClick = {
+                            openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html")
+                        },
                         shape = RoundedCornerShape(12.dp),
                         color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF6851B).copy(alpha = 0.6f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFF6851B)),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text("🦊", fontSize = 18.sp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF6851B)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("🦊", fontSize = 18.sp)
+                                }
+                                Column {
+                                    Text("MetaMask (Open App)", fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text("Launch & sign real txs in MetaMask", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                }
                             }
-                            Column {
-                                Text("MetaMask", fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("Connect Web3 Wallet (Mainnet)", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                            }
+                            Icon(Icons.Default.OpenInNew, contentDescription = "Open MetaMask", tint = BnbGold, modifier = Modifier.size(18.dp))
                         }
                     }
 
-                    // Trust Wallet Option
+                    // Trust Wallet Deep Link Option
                     Surface(
-                        onClick = { onConnectCustom("0x89D...91F2 (Trust Wallet)") },
+                        onClick = {
+                            openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=https://tataswap.onrender.com/dex.html")
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = DarkSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF0500FF)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("🛡️", fontSize = 18.sp)
+                                }
+                                Column {
+                                    Text("Trust Wallet (Open App)", fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text("Launch & sign real txs in Trust", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                }
+                            }
+                            Icon(Icons.Default.OpenInNew, contentDescription = "Open Trust Wallet", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    // Phantom Wallet Deep Link (Solana)
+                    Surface(
+                        onClick = {
+                            openExternalUrl("https://phantom.app/ul/browse/https://tataswap.onrender.com/dex.html")
+                        },
                         shape = RoundedCornerShape(12.dp),
                         color = DarkSurfaceElevated,
                         border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
@@ -395,21 +479,27 @@ fun WalletConnectDialog(
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF0500FF)),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text("🛡️", fontSize = 18.sp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFAB9FF2)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("👻", fontSize = 18.sp)
+                                }
+                                Column {
+                                    Text("Phantom (Solana Mainnet)", fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text("Open TataSwap in Phantom", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                }
                             }
-                            Column {
-                                Text("Trust Wallet", fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("Multi-chain EVM wallet", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                            }
+                            Icon(Icons.Default.OpenInNew, contentDescription = "Open Phantom", tint = TextSecondary, modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -445,10 +535,14 @@ fun WalletConnectDialog(
                     // Direct address input
                     OutlinedTextField(
                         value = inputAddress,
-                        onValueChange = { inputAddress = it },
-                        label = { Text("Or Paste 0x Wallet Address") },
-                        placeholder = { Text("0x...") },
+                        onValueChange = {
+                            inputAddress = it
+                            addressError = null
+                        },
+                        label = { Text("Paste Real 0x or Solana Address") },
+                        placeholder = { Text("0x... or Solana address") },
                         singleLine = true,
+                        isError = addressError != null,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = BnbGold,
                             unfocusedBorderColor = DarkSurfaceBorder,
@@ -458,16 +552,30 @@ fun WalletConnectDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    if (addressError != null) {
+                        Text(
+                            text = addressError!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CryptoRed
+                        )
+                    }
+
                     Button(
                         onClick = {
-                            if (inputAddress.isNotBlank()) onConnectCustom(inputAddress.trim())
-                            else onConnectCustom("0x71C8364f3B88782E88F9bc1b29a28Fa2443ba49B")
+                            val clean = inputAddress.trim()
+                            val isValidEvm = clean.startsWith("0x") && clean.length == 42
+                            val isValidSol = !clean.startsWith("0x") && clean.length in 32..44
+                            if (isValidEvm || isValidSol) {
+                                onConnectCustom(clean)
+                            } else {
+                                addressError = "Enter a valid 42-char 0x EVM address or Solana address."
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Connect Address", fontWeight = FontWeight.Bold)
+                        Text("Connect & Sync Live Balance", fontWeight = FontWeight.Bold)
                     }
                 }
             }

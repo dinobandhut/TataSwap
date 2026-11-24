@@ -75,6 +75,43 @@ class Web3RpcClient {
         }
     }
 
+    suspend fun getErc20Balance(
+        rpcUrl: String,
+        tokenAddress: String,
+        walletAddress: String,
+        decimals: Int = 18
+    ): Result<Double> = withContext(Dispatchers.IO) {
+        try {
+            val cleanToken = tokenAddress.trim()
+            val cleanWallet = walletAddress.trim().removePrefix("0x").lowercase()
+            if (!cleanToken.startsWith("0x") || cleanToken.length != 42 || cleanWallet.length != 40) {
+                return@withContext Result.failure(Exception("Invalid EVM contract or wallet address"))
+            }
+            val data = "0x70a08231" + cleanWallet.padStart(64, '0')
+            val payload = JSONObject().apply {
+                put("jsonrpc", "2.0")
+                put("method", "eth_call")
+                put("params", JSONArray().put(JSONObject().apply {
+                    put("to", cleanToken)
+                    put("data", data)
+                }).put("latest"))
+                put("id", 3)
+            }
+            val responseStr = executeRpc(rpcUrl, payload.toString())
+            val resObj = JSONObject(responseStr)
+            if (!resObj.has("result")) {
+                return@withContext Result.failure(Exception("ERC20 balanceOf failed"))
+            }
+            val hex = resObj.getString("result").removePrefix("0x")
+            val raw = if (hex.isEmpty()) BigInteger.ZERO else BigInteger(hex, 16)
+            val divisor = BigDecimal.TEN.pow(decimals.coerceIn(0, 18))
+            val human = BigDecimal(raw).divide(divisor, 4, java.math.RoundingMode.HALF_UP)
+            Result.success(human.toDouble())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun inspectTokenContract(rpcUrl: String, contractAddress: String, isEvm: Boolean = true): Result<TokenContractInfo> = withContext(Dispatchers.IO) {
         try {
             val cleanAddr = contractAddress.trim()
@@ -244,74 +281,108 @@ class Web3RpcClient {
     }
 
     suspend fun fetchLiveMarketPrices(): Result<Map<String, LiveTokenPrice>> = withContext(Dispatchers.IO) {
-        // 1. Primary: CoinGecko Public Simple Price API
-        try {
-            val cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether,bitcoin,pancakeswap-token&vs_currencies=usd&include_24hr_change=true"
-            val body = executeGet(cgUrl)
-            val json = JSONObject(body)
-            val map = mutableMapOf<String, LiveTokenPrice>()
+        val map = mutableMapOf<String, LiveTokenPrice>()
 
-            fun putIfPresent(symbol: String, id: String) {
-                val obj = json.optJSONObject(id) ?: return
-                val usd = obj.optDouble("usd", 0.0)
+        // 1. Primary: Binance Data Vision Public Market API (fast, reliable, no API key required)
+        try {
+            val binanceUrl = "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22ETHUSDT%22,%22BNBUSDT%22,%22SOLUSDT%22,%22POLUSDT%22,%22BTCUSDT%22,%22CAKEUSDT%22%5D"
+            val body = executeGet(binanceUrl)
+            val arr = JSONArray(body)
+            val pairToSymbol = mapOf(
+                "ETHUSDT" to "ETH",
+                "BNBUSDT" to "BNB",
+                "SOLUSDT" to "SOL",
+                "POLUSDT" to "POL",
+                "BTCUSDT" to "BTCB",
+                "CAKEUSDT" to "CAKE"
+            )
+            for (i in 0 until arr.length()) {
+                val item = arr.optJSONObject(i) ?: continue
+                val pair = item.optString("symbol")
+                val sym = pairToSymbol[pair] ?: continue
+                val usd = item.optString("lastPrice", "0").toDoubleOrNull() ?: 0.0
+                val chg = item.optString("priceChangePercent", "0").toDoubleOrNull() ?: 0.0
                 if (usd > 0.0) {
-                    val chg = obj.optDouble("usd_24h_change", 0.0)
-                    map[symbol] = LiveTokenPrice(usd = usd, change24h = chg)
+                    map[sym] = LiveTokenPrice(usd = usd, change24h = chg)
                 }
             }
-
-            putIfPresent("ETH", "ethereum")
-            putIfPresent("BNB", "binancecoin")
-            putIfPresent("POL", "polygon-ecosystem-token")
-            if (!map.containsKey("POL")) putIfPresent("POL", "matic-network")
-            putIfPresent("CORE", "coredaoorg")
-            putIfPresent("SOL", "solana")
-            putIfPresent("USDT", "tether")
-            putIfPresent("BTCB", "bitcoin")
-            putIfPresent("CAKE", "pancakeswap-token")
-
             if (map.isNotEmpty()) {
-                return@withContext Result.success(map)
+                map["USDT"] = LiveTokenPrice(usd = 1.0, change24h = 0.01)
             }
         } catch (_: Exception) {
-            // Fall through to CryptoCompare fallback
+            // Continue to CoinGecko / CryptoCompare for missing symbols
         }
 
-        // 2. Fallback: CryptoCompare Multi-Symbol Price API
-        try {
-            val ccUrl = "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,SOL,USDT,BTC,CAKE&tsyms=USD"
-            val body = executeGet(ccUrl)
-            val raw = JSONObject(body).optJSONObject("RAW")
-                ?: return@withContext Result.failure(Exception("No price data returned"))
-            val map = mutableMapOf<String, LiveTokenPrice>()
+        // 2. Secondary: CoinGecko Public Simple Price API (fills CORE, USDT & any missing pairs)
+        if (!map.containsKey("CORE") || !map.containsKey("ETH") || !map.containsKey("BNB")) {
+            try {
+                val cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether,bitcoin,pancakeswap-token&vs_currencies=usd&include_24hr_change=true"
+                val body = executeGet(cgUrl)
+                val json = JSONObject(body)
 
-            for (sym in listOf("ETH", "BNB", "POL", "CORE", "SOL", "USDT", "CAKE")) {
-                val usdObj = raw.optJSONObject(sym)?.optJSONObject("USD") ?: continue
-                val usd = usdObj.optDouble("PRICE", 0.0)
-                if (usd > 0.0) {
-                    map[sym] = LiveTokenPrice(
-                        usd = usd,
-                        change24h = usdObj.optDouble("CHANGEPCT24HOUR", 0.0)
-                    )
+                fun putIfMissing(symbol: String, id: String) {
+                    if (map.containsKey(symbol)) return
+                    val obj = json.optJSONObject(id) ?: return
+                    val usd = obj.optDouble("usd", 0.0)
+                    if (usd > 0.0) {
+                        val chg = obj.optDouble("usd_24h_change", 0.0)
+                        map[symbol] = LiveTokenPrice(usd = usd, change24h = chg)
+                    }
                 }
-            }
-            raw.optJSONObject("BTC")?.optJSONObject("USD")?.let { btcObj ->
-                val usd = btcObj.optDouble("PRICE", 0.0)
-                if (usd > 0.0) {
-                    map["BTCB"] = LiveTokenPrice(
-                        usd = usd,
-                        change24h = btcObj.optDouble("CHANGEPCT24HOUR", 0.0)
-                    )
-                }
-            }
 
-            if (map.isNotEmpty()) {
-                Result.success(map)
-            } else {
-                Result.failure(Exception("Live price feeds unavailable"))
+                putIfMissing("ETH", "ethereum")
+                putIfMissing("BNB", "binancecoin")
+                putIfMissing("POL", "polygon-ecosystem-token")
+                putIfMissing("POL", "matic-network")
+                putIfMissing("CORE", "coredaoorg")
+                putIfMissing("SOL", "solana")
+                putIfMissing("USDT", "tether")
+                putIfMissing("BTCB", "bitcoin")
+                putIfMissing("CAKE", "pancakeswap-token")
+            } catch (_: Exception) {
+                // Fall through to CryptoCompare fallback
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+        }
+
+        // 3. Fallback: CryptoCompare Multi-Symbol Price API
+        if (!map.containsKey("ETH") || !map.containsKey("BNB") || !map.containsKey("CORE")) {
+            try {
+                val ccUrl = "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,SOL,USDT,BTC,CAKE&tsyms=USD"
+                val body = executeGet(ccUrl)
+                val raw = JSONObject(body).optJSONObject("RAW")
+                if (raw != null) {
+                    for (sym in listOf("ETH", "BNB", "POL", "CORE", "SOL", "USDT", "CAKE")) {
+                        if (map.containsKey(sym)) continue
+                        val usdObj = raw.optJSONObject(sym)?.optJSONObject("USD") ?: continue
+                        val usd = usdObj.optDouble("PRICE", 0.0)
+                        if (usd > 0.0) {
+                            map[sym] = LiveTokenPrice(
+                                usd = usd,
+                                change24h = usdObj.optDouble("CHANGEPCT24HOUR", 0.0)
+                            )
+                        }
+                    }
+                    if (!map.containsKey("BTCB")) {
+                        raw.optJSONObject("BTC")?.optJSONObject("USD")?.let { btcObj ->
+                            val usd = btcObj.optDouble("PRICE", 0.0)
+                            if (usd > 0.0) {
+                                map["BTCB"] = LiveTokenPrice(
+                                    usd = usd,
+                                    change24h = btcObj.optDouble("CHANGEPCT24HOUR", 0.0)
+                                )
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Handled below
+            }
+        }
+
+        if (map.isNotEmpty()) {
+            Result.success(map)
+        } else {
+            Result.failure(Exception("Live price feeds unavailable"))
         }
     }
 

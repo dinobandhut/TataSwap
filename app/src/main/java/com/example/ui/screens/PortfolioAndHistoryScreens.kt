@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.BlockchainNetwork
@@ -42,11 +44,31 @@ fun PortfolioScreen(
     pools: List<LiquidityPool>,
     onAddLiquidityForPool: (LiquidityPool) -> Unit,
     onRemoveLiquidityForPool: (LiquidityPool) -> Unit,
-    onConnectWallet: () -> Unit
+    onConnectWallet: () -> Unit,
+    onRefreshPortfolio: () -> Unit = {},
+    onSendRealCrypto: (toAddress: String, amount: Double, symbol: String, walletType: String) -> String = { _, _, _, _ -> "" }
 ) {
     val clipboardManager = LocalClipboardManager.current
-    val totalTokenUsd = tokens.sumOf { it.userBalance * it.priceUsd }
-    val totalNetWorth = totalTokenUsd + (nativeBalance * (tokens.firstOrNull { it.symbol == "BNB" }?.priceUsd ?: 620.0))
+    val context = LocalContext.current
+
+    var showSendDialog by remember { mutableStateOf(false) }
+    var sendToAddress by remember { mutableStateOf("") }
+    var sendAmountText by remember { mutableStateOf("") }
+    var sendError by remember { mutableStateOf<String?>(null) }
+
+    val nativePriceUsd = tokens.firstOrNull { it.symbol.equals(network.symbol, ignoreCase = true) }?.priceUsd
+        ?: when (network.symbol.uppercase()) {
+            "ETH" -> 3210.0
+            "BNB" -> 624.50
+            "POL" -> 0.45
+            "CORE" -> 1.15
+            "SOL" -> 185.0
+            else -> 1.45
+        }
+    val nativeValueUsd = nativeBalance * nativePriceUsd
+    val otherTokensUsd = tokens.filter { !it.symbol.equals(network.symbol, ignoreCase = true) }
+        .sumOf { it.userBalance * it.priceUsd }
+    val totalNetWorth = nativeValueUsd + otherTokensUsd
 
     val myPools = pools.filter { it.userLpBalance > 0.0 || it.userSharePercent > 0.0 }
 
@@ -59,7 +81,23 @@ fun PortfolioScreen(
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
-            Text("My Web3 Portfolio", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("My Web3 Portfolio", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+                OutlinedButton(
+                    onClick = onRefreshPortfolio,
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("portfolio_refresh_button")
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Sync Live Prices", tint = BnbGold, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sync Live", fontSize = 12.sp, color = BnbGold, fontWeight = FontWeight.Bold)
+                }
+            }
         }
 
         // Net Worth Card
@@ -71,19 +109,35 @@ fun PortfolioScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Total Net Worth", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Total Net Worth (Live Market)", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                        Surface(shape = RoundedCornerShape(6.dp), color = CryptoGreenBg) {
+                            Text(
+                                text = network.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CryptoGreen,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text("$${"%,.2f".format(totalNetWorth)}", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = TextPrimary)
 
                     HorizontalDivider(color = DarkSurfaceBorder)
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text("Wallet Address", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             Text(
                                 text = connectedWallet ?: "Not Connected",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (connectedWallet != null) BnbGold else CryptoRed
+                                color = if (connectedWallet != null) BnbGold else CryptoRed,
+                                maxLines = 1
                             )
                         }
                         if (connectedWallet != null) {
@@ -100,16 +154,78 @@ fun PortfolioScreen(
                             }
                         }
                     }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { showSendDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("portfolio_send_crypto_button")
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Send Real Coin", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                        OutlinedButton(
+                            onClick = onConnectWallet,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Wallet App", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = NeonCyan)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Active Native Coin Card
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(CryptoGreen.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(network.symbol.take(3), fontWeight = FontWeight.Black, color = CryptoGreen, fontSize = 11.sp)
+                        }
+                        Column {
+                            Text("${network.symbol} (Native Coin)", fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Text("Live Price: $${"%.2f".format(nativePriceUsd)}", style = MaterialTheme.typography.labelSmall, color = NeonCyan)
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("${"%.4f".format(nativeBalance)} ${network.symbol}", fontWeight = FontWeight.Bold, color = TextPrimary)
+                        Text("$${"%,.2f".format(nativeValueUsd)}", style = MaterialTheme.typography.labelSmall, color = CryptoGreen, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
 
         // Tokens Balance Section
         item {
-            Text("Token Holdings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text("Token Holdings (Market Priced)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
-        items(tokens.filter { it.userBalance > 0.0 }) { token ->
+        items(tokens.filter { it.userBalance > 0.0 && !it.symbol.equals(network.symbol, ignoreCase = true) }) { token ->
             val holdingUsd = token.userBalance * token.priceUsd
             Card(
                 colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
@@ -136,13 +252,13 @@ fun PortfolioScreen(
                         }
                         Column {
                             Text(token.symbol, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            Text(token.name, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            Text("${token.name} • $${"%.2f".format(token.priceUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                         }
                     }
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text("${"%.4f".format(token.userBalance)} ${token.symbol}", fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("$${"%.2f".format(holdingUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                        Text("$${"%,.2f".format(holdingUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                     }
                 }
             }
@@ -235,6 +351,121 @@ fun PortfolioScreen(
                 }
             }
         }
+    }
+
+    if (showSendDialog) {
+        AlertDialog(
+            onDismissRequest = { showSendDialog = false },
+            containerColor = DarkSurface,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null, tint = BnbGold)
+                    Text("Send Real ${network.symbol}", color = TextPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Opens MetaMask or Trust Wallet directly on ${network.name} to sign and broadcast a real on-chain transfer.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                    OutlinedTextField(
+                        value = sendToAddress,
+                        onValueChange = {
+                            sendToAddress = it
+                            sendError = null
+                        },
+                        label = { Text("Recipient Address") },
+                        placeholder = { Text(if (network.isEvm) "0x..." else "Solana address") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BnbGold,
+                            unfocusedBorderColor = DarkSurfaceBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = sendAmountText,
+                        onValueChange = {
+                            sendAmountText = it
+                            sendError = null
+                        },
+                        label = { Text("Amount (${network.symbol})") },
+                        placeholder = { Text("0.01") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BnbGold,
+                            unfocusedBorderColor = DarkSurfaceBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (sendError != null) {
+                        Text(sendError!!, style = MaterialTheme.typography.labelSmall, color = CryptoRed)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val to = sendToAddress.trim()
+                                val amt = sendAmountText.toDoubleOrNull() ?: 0.0
+                                val validAddr = if (network.isEvm) to.startsWith("0x") && to.length == 42 else to.length in 32..44
+                                if (!validAddr || amt <= 0.0) {
+                                    sendError = "Enter valid recipient address & amount > 0."
+                                } else {
+                                    val deepLink = onSendRealCrypto(to, amt, network.symbol, "metamask")
+                                    showSendDialog = false
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)))
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("MetaMask", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                val to = sendToAddress.trim()
+                                val amt = sendAmountText.toDoubleOrNull() ?: 0.0
+                                val validAddr = if (network.isEvm) to.startsWith("0x") && to.length == 42 else to.length in 32..44
+                                if (!validAddr || amt <= 0.0) {
+                                    sendError = "Enter valid recipient address & amount > 0."
+                                } else {
+                                    val deepLink = onSendRealCrypto(to, amt, network.symbol, "trust")
+                                    showSendDialog = false
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)))
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = Color.Black),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Trust Wallet", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSendDialog = false }) {
+                    Text("Close", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 
