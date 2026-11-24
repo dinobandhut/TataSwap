@@ -86,6 +86,48 @@ class DexRepository(
             _currentBlockNumber.value = block
         }
         refreshWalletBalance()
+        refreshLivePrices()
+    }
+
+    suspend fun refreshLivePrices(): Boolean {
+        val priceResult = rpcClient.fetchLiveMarketPrices()
+        val liveMap = priceResult.getOrNull() ?: return false
+        if (liveMap.isEmpty()) return false
+
+        _tokens.update { list ->
+            list.map { token ->
+                val live = liveMap[token.symbol]
+                if (live != null && live.usd > 0.0) {
+                    token.copy(
+                        priceUsd = live.usd,
+                        change24h = live.change24h
+                    )
+                } else {
+                    token
+                }
+            }
+        }
+
+        val updatedBySymbol = _tokens.value.associateBy { it.symbol }
+        _pools.update { list ->
+            list.map { pool ->
+                val updatedA = updatedBySymbol[pool.tokenA.symbol] ?: pool.tokenA
+                val updatedB = updatedBySymbol[pool.tokenB.symbol] ?: pool.tokenB
+                val newReserveB = if (updatedB.priceUsd > 0.0 && updatedA.priceUsd > 0.0) {
+                    pool.reserveA * (updatedA.priceUsd / updatedB.priceUsd)
+                } else {
+                    pool.reserveB
+                }
+                val newTvl = (pool.reserveA * updatedA.priceUsd) + (newReserveB * updatedB.priceUsd)
+                pool.copy(
+                    tokenA = updatedA,
+                    tokenB = updatedB,
+                    reserveB = newReserveB,
+                    tvlUsd = newTvl
+                )
+            }
+        }
+        return true
     }
 
     fun refreshWalletBalance() {
@@ -193,9 +235,16 @@ class DexRepository(
         return tx
     }
 
+    fun isAppOwnerWallet(walletAddress: String?): Boolean {
+        if (walletAddress.isNullOrBlank()) return false
+        val cleanAddress = walletAddress.substringBefore(" ").trim()
+        return cleanAddress.equals(_protocolStats.value.officialFeeReceiverWallet, ignoreCase = true)
+    }
+
     /**
      * PERMISSIONLESS TOKEN LISTING WITH ON-CHAIN 5 USDT FEE COLLECTION
-     * Transfers 5 USDT to DEX Owner Wallet: 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4
+     * Regular users pay 5 USDT to DEX Owner Wallet: 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4
+     * App Owner pays ZERO (0.00 USDT) fee for any token listing.
      */
     fun listNewTokenPermissionless(
         contractAddress: String,
@@ -203,19 +252,23 @@ class DexRepository(
         symbol: String,
         decimals: Int,
         totalSupply: String,
-        initialPriceUsd: Double
+        initialPriceUsd: Double,
+        callerWallet: String? = _connectedWallet.value
     ): Result<TransactionRecord> {
-        if (_protocolStats.value.isEmergencyPaused) {
+        val isOwner = isAppOwnerWallet(callerWallet)
+        if (_protocolStats.value.isEmergencyPaused && !isOwner) {
             return Result.failure(Exception("TataSwap contracts are currently paused by the administrator."))
         }
 
-        val feeAmount = _protocolStats.value.officialListingFeeUsdt
         val receiver = _protocolStats.value.officialFeeReceiverWallet
+        val feeAmount = if (isOwner) 0.0 else _protocolStats.value.officialListingFeeUsdt
 
-        // Deduct 5 USDT from user's balance
-        val usdtToken = _tokens.value.firstOrNull { it.symbol == "USDT" }
-        if (usdtToken != null && usdtToken.userBalance < feeAmount) {
-            return Result.failure(Exception("Insufficient USDT balance. You need at least $feeAmount USDT to pay the listing fee to $receiver."))
+        // Deduct listing fee only for non-owner users
+        if (feeAmount > 0.0) {
+            val usdtToken = _tokens.value.firstOrNull { it.symbol == "USDT" }
+            if (usdtToken != null && usdtToken.userBalance < feeAmount) {
+                return Result.failure(Exception("Insufficient USDT balance. You need at least $feeAmount USDT to pay the listing fee to $receiver."))
+            }
         }
 
         val txHash = generateTxHash()
@@ -223,22 +276,32 @@ class DexRepository(
             id = UUID.randomUUID().toString(),
             txHash = txHash,
             type = TransactionType.TOKEN_LISTING,
-            title = "Permissionless Listing: $symbol ($name)",
-            description = "Listing Fee of $feeAmount USDT paid directly to official receiver: $receiver",
+            title = if (isOwner) {
+                "Owner Token Listing (Fee Exempt): $symbol ($name)"
+            } else {
+                "Permissionless Listing: $symbol ($name)"
+            },
+            description = if (isOwner) {
+                "0.00 USDT fee — Listed by App Owner ($receiver) with zero fee."
+            } else {
+                "Listing Fee of $feeAmount USDT paid directly to official receiver: $receiver"
+            },
             tokenInSymbol = "USDT",
             amountIn = feeAmount,
             status = "Confirmed",
             networkName = _currentNetwork.value.name
         )
 
-        // Deduct fee from USDT
-        _tokens.update { list ->
-            list.map { t ->
-                if (t.symbol == "USDT") t.copy(userBalance = (t.userBalance - feeAmount).coerceAtLeast(0.0)) else t
+        // Deduct fee from USDT only when feeAmount > 0
+        if (feeAmount > 0.0) {
+            _tokens.update { list ->
+                list.map { t ->
+                    if (t.symbol == "USDT") t.copy(userBalance = (t.userBalance - feeAmount).coerceAtLeast(0.0)) else t
+                }
             }
         }
 
-        // Create new token
+        // Create new token (Owner-listed tokens start verified)
         val newToken = Token(
             address = contractAddress,
             name = name,
@@ -248,7 +311,7 @@ class DexRepository(
             change24h = 0.0,
             volume24h = 0.0,
             liquidityUsd = 0.0,
-            isVerified = false, // permissionless tokens start as community listed
+            isVerified = isOwner,
             isCustom = true,
             userBalance = 1000.0, // Initial creator allocation for testing
             contractBytecodeExists = true,
@@ -264,10 +327,12 @@ class DexRepository(
         _transactions.update { listOf(tx) + it }
 
         // Update protocol metrics with collected listing fee
-        _protocolStats.update { stats ->
-            stats.copy(
-                totalListingFeesCollectedUsdt = stats.totalListingFeesCollectedUsdt + feeAmount
-            )
+        if (feeAmount > 0.0) {
+            _protocolStats.update { stats ->
+                stats.copy(
+                    totalListingFeesCollectedUsdt = stats.totalListingFeesCollectedUsdt + feeAmount
+                )
+            }
         }
 
         return Result.success(tx)
@@ -499,7 +564,7 @@ class DexRepository(
         ),
         Token(
             address = "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
-            name = "Binance-Peg Ethereum",
+            name = "Ethereum",
             symbol = "ETH",
             decimals = 18,
             priceUsd = 3210.0,
@@ -508,7 +573,46 @@ class DexRepository(
             liquidityUsd = 4100000.0,
             isVerified = true,
             userBalance = 0.85,
-            totalSupply = "1,850,000"
+            totalSupply = "120,400,000"
+        ),
+        Token(
+            address = "0x0000000000000000000000000000000000001010",
+            name = "Polygon Ecosystem Token",
+            symbol = "POL",
+            decimals = 18,
+            priceUsd = 0.45,
+            change24h = +1.95,
+            volume24h = 680000.0,
+            liquidityUsd = 2150000.0,
+            isVerified = true,
+            userBalance = 120.0,
+            totalSupply = "10,000,000,000"
+        ),
+        Token(
+            address = "0x40375C92d9FAf44d2f9db9Bd9ba41a3317a2404f",
+            name = "Core DAO",
+            symbol = "CORE",
+            decimals = 18,
+            priceUsd = 1.15,
+            change24h = +4.10,
+            volume24h = 520000.0,
+            liquidityUsd = 1640000.0,
+            isVerified = true,
+            userBalance = 85.0,
+            totalSupply = "2,100,000,000"
+        ),
+        Token(
+            address = "So11111111111111111111111111111111111111112",
+            name = "Solana",
+            symbol = "SOL",
+            decimals = 9,
+            priceUsd = 210.0,
+            change24h = +3.25,
+            volume24h = 2890000.0,
+            liquidityUsd = 7100000.0,
+            isVerified = true,
+            userBalance = 4.2,
+            totalSupply = "588,000,000"
         )
     )
 

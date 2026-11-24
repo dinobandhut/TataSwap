@@ -56,6 +56,7 @@ data class ListingUiState(
     val detectedInfo: TokenContractInfo? = null,
     val initialPriceUsd: String = "1.00",
     val requiredFeeUsdt: Double = 5.0,
+    val isOwnerWallet: Boolean = false,
     val feeReceiverAddress: String = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4",
     val isSubmitting: Boolean = false,
     val listingSuccessTx: TransactionRecord? = null,
@@ -119,9 +120,61 @@ class DexViewModel(
         _selectedToken.value = bnb
         _selectedPool.value = repository.pools.value.firstOrNull()
 
-        // Sync initial network status
+        // Sync initial network status & live prices
         viewModelScope.launch {
             repository.refreshNetworkStatus()
+        }
+
+        // Keep listing fee UI synced with connected wallet (Owner = 0 fee) & protocol stats
+        viewModelScope.launch {
+            combine(repository.connectedWallet, repository.protocolStats) { wallet, stats ->
+                val isOwner = repository.isAppOwnerWallet(wallet)
+                Triple(isOwner, if (isOwner) 0.0 else stats.officialListingFeeUsdt, stats.officialFeeReceiverWallet)
+            }.collect { (isOwner, fee, receiver) ->
+                _listingState.update {
+                    it.copy(
+                        isOwnerWallet = isOwner,
+                        requiredFeeUsdt = fee,
+                        feeReceiverAddress = receiver
+                    )
+                }
+            }
+        }
+
+        // Keep SwapUiState and selectedToken synced whenever live token prices update
+        viewModelScope.launch {
+            repository.tokens.collect { updatedTokens ->
+                val bySymbol = updatedTokens.associateBy { it.symbol }
+                _selectedToken.value?.let { currSel ->
+                    bySymbol[currSel.symbol]?.let { fresh ->
+                        _selectedToken.value = fresh
+                    }
+                }
+                _swapState.value?.let { currSwap ->
+                    val freshIn = bySymbol[currSwap.tokenIn.symbol] ?: currSwap.tokenIn
+                    val freshOut = bySymbol[currSwap.tokenOut.symbol] ?: currSwap.tokenOut
+                    if (freshIn != currSwap.tokenIn || freshOut != currSwap.tokenOut) {
+                        val parsed = currSwap.amountIn.toDoubleOrNull() ?: 0.0
+                        val newQuote = if (parsed > 0.0) {
+                            repository.calculateSwapQuote(freshIn, freshOut, parsed, currSwap.slippagePercent)
+                        } else null
+                        _swapState.value = currSwap.copy(
+                            tokenIn = freshIn,
+                            tokenOut = freshOut,
+                            amountOut = newQuote?.let { "%.4f".format(it.amountOut) } ?: currSwap.amountOut,
+                            quote = newQuote
+                        )
+                    }
+                }
+            }
+        }
+
+        // Auto-refresh live market prices every 30 seconds while app is active
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000L)
+                repository.refreshLivePrices()
+            }
         }
     }
 
@@ -287,6 +340,7 @@ class DexViewModel(
             )
 
             result.onSuccess { tx ->
+                val wasOwner = state.isOwnerWallet
                 _listingState.update {
                     it.copy(
                         isSubmitting = false,
@@ -295,7 +349,13 @@ class DexViewModel(
                         detectedInfo = null
                     )
                 }
-                _snackbarMessage.emit("Token ${info.symbol} successfully listed! Fee sent to 0xD9e5...CA4")
+                _snackbarMessage.emit(
+                    if (wasOwner) {
+                        "Owner listed ${info.symbol} with 0.00 USDT fee!"
+                    } else {
+                        "Token ${info.symbol} successfully listed! Fee sent to 0xD9e5...CA4"
+                    }
+                )
             }.onFailure { err ->
                 _listingState.update { it.copy(isSubmitting = false, errorMessage = err.message) }
                 _snackbarMessage.emit("Listing Error: ${err.message}")

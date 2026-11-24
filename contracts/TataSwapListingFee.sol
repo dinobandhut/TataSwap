@@ -29,6 +29,7 @@ contract TataSwapListingFee {
     // Mapping to store registered tokens
     mapping(address => bool) public isTokenListed;
     mapping(address => TokenListingDetails) public tokenListings;
+    mapping(address => bool) public feeExemptWallets;
     address[] public listedTokens;
 
     struct TokenListingDetails {
@@ -56,6 +57,7 @@ contract TataSwapListingFee {
     event PaymentTokenUpdated(address oldToken, address newToken);
     event EmergencyPauseToggled(bool isPaused);
     event TokenVerificationStatusUpdated(address indexed token, bool isVerified);
+    event FeeExemptionUpdated(address indexed account, bool isExempt);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "TataSwap: caller is not the owner");
@@ -87,12 +89,22 @@ contract TataSwapListingFee {
         paymentToken = _paymentToken;
         listingFeeAmount = _initialFeeAmount; // 5 USDT
         isPaused = false;
+        feeExemptWallets[msg.sender] = true;
+        feeExemptWallets[_initialFeeReceiver] = true;
+    }
+
+    /**
+     * @notice Returns true when an account is exempt from paying token listing fees.
+     * App owner and official feeReceiver are always exempt.
+     */
+    function isFeeExempt(address _account) public view returns (bool) {
+        return _account == owner || _account == feeReceiver || feeExemptWallets[_account];
     }
 
     /**
      * @notice Permissionless token listing function.
-     * Any user can list their token by paying the required listing fee.
-     * Automatically transfers listing fee to feeReceiver wallet.
+     * Regular users pay the configured listing fee (5 USDT).
+     * App owner / feeReceiver / exempt wallets pay ZERO (0) fee.
      */
     function listToken(
         address _tokenAddress,
@@ -103,12 +115,15 @@ contract TataSwapListingFee {
         require(_tokenAddress != address(0), "TataSwap: invalid token address");
         require(!isTokenListed[_tokenAddress], "TataSwap: token already listed");
 
-        // Collect listing fee from user directly to official feeReceiver
-        if (listingFeeAmount > 0 && paymentToken != address(0)) {
+        bool exempt = isFeeExempt(msg.sender);
+        uint256 effectiveFee = exempt ? 0 : listingFeeAmount;
+
+        // Collect listing fee only for non-exempt users
+        if (effectiveFee > 0 && paymentToken != address(0)) {
             bool success = IERC20(paymentToken).transferFrom(
                 msg.sender,
                 feeReceiver,
-                listingFeeAmount
+                effectiveFee
             );
             require(success, "TataSwap: listing fee transfer failed");
         }
@@ -123,9 +138,9 @@ contract TataSwapListingFee {
             symbol: _symbol,
             decimals: _decimals,
             listedBy: msg.sender,
-            feePaid: listingFeeAmount,
+            feePaid: effectiveFee,
             timestamp: block.timestamp,
-            isVerified: false // starts as community listed
+            isVerified: exempt // owner-listed tokens start verified
         });
 
         emit TokenListed(
@@ -133,10 +148,19 @@ contract TataSwapListingFee {
             msg.sender,
             _name,
             _symbol,
-            listingFeeAmount,
+            effectiveFee,
             feeReceiver,
             block.timestamp
         );
+    }
+
+    /**
+     * @notice Owner function to update fee exemption for a wallet.
+     */
+    function setFeeExempt(address _account, bool _exempt) external onlyOwner {
+        require(_account != address(0), "TataSwap: invalid account");
+        feeExemptWallets[_account] = _exempt;
+        emit FeeExemptionUpdated(_account, _exempt);
     }
 
     /**
@@ -154,6 +178,7 @@ contract TataSwapListingFee {
         require(_newReceiver != address(0), "TataSwap: invalid receiver");
         emit FeeReceiverUpdated(feeReceiver, _newReceiver);
         feeReceiver = _newReceiver;
+        feeExemptWallets[_newReceiver] = true;
     }
 
     /**

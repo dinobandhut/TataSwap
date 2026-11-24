@@ -413,6 +413,35 @@ fun WalletConnectDialog(
                         }
                     }
 
+                    // App Owner Wallet Option (0 Listing Fee)
+                    Surface(
+                        onClick = { onConnectCustom("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4") },
+                        shape = RoundedCornerShape(12.dp),
+                        color = CryptoGreenBg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(CryptoGreen),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.VerifiedUser, contentDescription = "Owner", tint = Color.Black, modifier = Modifier.size(20.dp))
+                            }
+                            Column {
+                                Text("App Owner Wallet (0 Fee)", fontWeight = FontWeight.Bold, color = CryptoGreen)
+                                Text("0xD9e5...1CA4 • Free Token Listing", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            }
+                        }
+                    }
+
                     // Direct address input
                     OutlinedTextField(
                         value = inputAddress,

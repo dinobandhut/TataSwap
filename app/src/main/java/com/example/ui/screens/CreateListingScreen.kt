@@ -96,7 +96,7 @@ fun CreateListingScreen(
                     StepDivider()
                     StepItem(step = "2", label = "RPC Verify", isDone = listingState.detectedInfo != null)
                     StepDivider()
-                    StepItem(step = "3", label = "Pay 5 USDT", isDone = listingState.listingSuccessTx != null)
+                    StepItem(step = "3", label = if (listingState.isOwnerWallet) "0 Fee (Owner)" else "Pay 5 USDT", isDone = listingState.listingSuccessTx != null)
                     StepDivider()
                     StepItem(step = "4", label = "Listed!", isDone = listingState.listingSuccessTx != null)
                 }
@@ -256,25 +256,53 @@ fun CreateListingScreen(
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
-            border = androidx.compose.foundation.BorderStroke(1.dp, BnbGold),
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (listingState.isOwnerWallet) CryptoGreen else BnbGold),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = BnbGold)
-                    Text(
-                        text = "3. On-Chain Listing Fee Collection",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (listingState.isOwnerWallet) Icons.Default.VerifiedUser else Icons.Default.MonetizationOn,
+                            contentDescription = null,
+                            tint = if (listingState.isOwnerWallet) CryptoGreen else BnbGold
+                        )
+                        Text(
+                            text = "3. On-Chain Listing Fee",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                    }
+                    if (listingState.isOwnerWallet) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = CryptoGreenBg
+                        ) {
+                            Text(
+                                text = "OWNER • 0 FEE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = CryptoGreen,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
 
                 Text(
-                    text = "Every user listing a token pays the fixed DEX listing fee. The smart contract automatically transfers 100% of this fee directly to the DEX Owner's official wallet.",
+                    text = if (listingState.isOwnerWallet) {
+                        "App Owner Wallet verified! You can list any token on TataSwap completely free with 0.00 USDT fee."
+                    } else {
+                        "Every user listing a token pays the fixed DEX listing fee. The smart contract automatically transfers 100% of this fee directly to the DEX Owner's official wallet."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
@@ -294,10 +322,10 @@ fun CreateListingScreen(
                         ) {
                             Text("Listing Fee Amount:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                             Text(
-                                text = "${listingState.requiredFeeUsdt} USDT",
+                                text = if (listingState.isOwnerWallet) "0.00 USDT (Owner Exempt)" else "${listingState.requiredFeeUsdt} USDT",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Black,
-                                color = BnbGold
+                                color = if (listingState.isOwnerWallet) CryptoGreen else BnbGold
                             )
                         }
 
@@ -358,7 +386,10 @@ fun CreateListingScreen(
                         else onSubmitListing()
                     },
                     enabled = connectedWallet == null || (listingState.detectedInfo != null && !listingState.isSubmitting),
-                    colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (listingState.isOwnerWallet) CryptoGreen else BnbGold,
+                        contentColor = Color.Black
+                    ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -368,13 +399,20 @@ fun CreateListingScreen(
                     if (listingState.isSubmitting) {
                         CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Collecting Fee & Registering...")
+                        Text(if (listingState.isOwnerWallet) "Registering Owner Token..." else "Collecting Fee & Registering...")
                     } else if (connectedWallet == null) {
                         Text("Connect Wallet to List Token", fontWeight = FontWeight.Bold)
                     } else {
                         Icon(Icons.Default.Check, contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Pay 5 USDT & Register Token", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (listingState.isOwnerWallet) {
+                                "List Token Free (Owner — 0 Fee)"
+                            } else {
+                                "Pay ${listingState.requiredFeeUsdt.toInt()} USDT & Register Token"
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

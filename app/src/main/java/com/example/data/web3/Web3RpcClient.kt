@@ -243,6 +243,93 @@ class Web3RpcClient {
         }
     }
 
+    suspend fun fetchLiveMarketPrices(): Result<Map<String, LiveTokenPrice>> = withContext(Dispatchers.IO) {
+        // 1. Primary: CoinGecko Public Simple Price API
+        try {
+            val cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether,bitcoin,pancakeswap-token&vs_currencies=usd&include_24hr_change=true"
+            val body = executeGet(cgUrl)
+            val json = JSONObject(body)
+            val map = mutableMapOf<String, LiveTokenPrice>()
+
+            fun putIfPresent(symbol: String, id: String) {
+                val obj = json.optJSONObject(id) ?: return
+                val usd = obj.optDouble("usd", 0.0)
+                if (usd > 0.0) {
+                    val chg = obj.optDouble("usd_24h_change", 0.0)
+                    map[symbol] = LiveTokenPrice(usd = usd, change24h = chg)
+                }
+            }
+
+            putIfPresent("ETH", "ethereum")
+            putIfPresent("BNB", "binancecoin")
+            putIfPresent("POL", "polygon-ecosystem-token")
+            if (!map.containsKey("POL")) putIfPresent("POL", "matic-network")
+            putIfPresent("CORE", "coredaoorg")
+            putIfPresent("SOL", "solana")
+            putIfPresent("USDT", "tether")
+            putIfPresent("BTCB", "bitcoin")
+            putIfPresent("CAKE", "pancakeswap-token")
+
+            if (map.isNotEmpty()) {
+                return@withContext Result.success(map)
+            }
+        } catch (_: Exception) {
+            // Fall through to CryptoCompare fallback
+        }
+
+        // 2. Fallback: CryptoCompare Multi-Symbol Price API
+        try {
+            val ccUrl = "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,SOL,USDT,BTC,CAKE&tsyms=USD"
+            val body = executeGet(ccUrl)
+            val raw = JSONObject(body).optJSONObject("RAW")
+                ?: return@withContext Result.failure(Exception("No price data returned"))
+            val map = mutableMapOf<String, LiveTokenPrice>()
+
+            for (sym in listOf("ETH", "BNB", "POL", "CORE", "SOL", "USDT", "CAKE")) {
+                val usdObj = raw.optJSONObject(sym)?.optJSONObject("USD") ?: continue
+                val usd = usdObj.optDouble("PRICE", 0.0)
+                if (usd > 0.0) {
+                    map[sym] = LiveTokenPrice(
+                        usd = usd,
+                        change24h = usdObj.optDouble("CHANGEPCT24HOUR", 0.0)
+                    )
+                }
+            }
+            raw.optJSONObject("BTC")?.optJSONObject("USD")?.let { btcObj ->
+                val usd = btcObj.optDouble("PRICE", 0.0)
+                if (usd > 0.0) {
+                    map["BTCB"] = LiveTokenPrice(
+                        usd = usd,
+                        change24h = btcObj.optDouble("CHANGEPCT24HOUR", 0.0)
+                    )
+                }
+            }
+
+            if (map.isNotEmpty()) {
+                Result.success(map)
+            } else {
+                Result.failure(Exception("Live price feeds unavailable"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun executeGet(url: String): String {
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .header("Accept", "application/json")
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw Exception("HTTP Error: ${response.code}")
+            }
+            return response.body?.string() ?: throw Exception("Empty response body")
+        }
+    }
+
     private fun executeRpc(rpcUrl: String, jsonBody: String): String {
         val request = Request.Builder()
             .url(rpcUrl)
@@ -266,4 +353,9 @@ data class TokenContractInfo(
     val decimals: Int,
     val totalSupply: String,
     val isVerifiedContract: Boolean
+)
+
+data class LiveTokenPrice(
+    val usd: Double,
+    val change24h: Double
 )

@@ -13,7 +13,14 @@ const PORT = process.env.PORT || 8080;
 const OFFICIAL_FEE_RECEIVER = (
   process.env.OFFICIAL_FEE_RECEIVER || '0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4'
 ).toLowerCase();
+const OFFICIAL_OWNER_WALLET = (
+  process.env.OFFICIAL_OWNER_WALLET || OFFICIAL_FEE_RECEIVER
+).toLowerCase();
 const LISTING_FEE_USDT = parseFloat(process.env.LISTING_FEE_USDT || '5.0');
+
+function isOwnerWallet(addr) {
+  return typeof addr === 'string' && addr.trim().toLowerCase() === OFFICIAL_OWNER_WALLET;
+}
 
 // Mainnet Blockchain RPC Endpoints (TataService, ETH, BNB, Polygon, Core, Solana)
 const RPC_URLS = {
@@ -224,6 +231,79 @@ app.get('/api/rpc/inspect/:address', async (req, res) => {
   }
 });
 
+// 2b. Live Market Prices (CoinGecko + CryptoCompare fallback with 30s cache)
+let priceCache = { data: null, updatedAt: 0 };
+
+async function fetchLivePrices() {
+  const now = Date.now();
+  if (priceCache.data && now - priceCache.updatedAt < 30000) {
+    return priceCache.data;
+  }
+
+  const prices = {
+    TATA: { usd: 1.45, change24h: 4.2, source: 'protocol_pool' },
+    USDT: { usd: 1.0, change24h: 0.0, source: 'peg' },
+  };
+
+  try {
+    const cgRes = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether&vs_currencies=usd&include_24hr_change=true'
+    );
+    if (cgRes.ok) {
+      const cg = await cgRes.json();
+      if (cg.ethereum?.usd) prices.ETH = { usd: cg.ethereum.usd, change24h: cg.ethereum.usd_24h_change || 0, source: 'coingecko' };
+      if (cg.binancecoin?.usd) prices.BNB = { usd: cg.binancecoin.usd, change24h: cg.binancecoin.usd_24h_change || 0, source: 'coingecko' };
+      const polObj = cg['polygon-ecosystem-token'] || cg['matic-network'];
+      if (polObj?.usd) prices.POL = { usd: polObj.usd, change24h: polObj.usd_24h_change || 0, source: 'coingecko' };
+      if (cg.coredaoorg?.usd) prices.CORE = { usd: cg.coredaoorg.usd, change24h: cg.coredaoorg.usd_24h_change || 0, source: 'coingecko' };
+      if (cg.solana?.usd) prices.SOL = { usd: cg.solana.usd, change24h: cg.solana.usd_24h_change || 0, source: 'coingecko' };
+      if (cg.tether?.usd) prices.USDT = { usd: cg.tether.usd, change24h: cg.tether.usd_24h_change || 0, source: 'coingecko' };
+    }
+  } catch (err) {
+    console.warn('[Prices] CoinGecko fetch skipped:', err.message);
+  }
+
+  // Fallback / fill any missing symbols from CryptoCompare
+  if (!prices.ETH || !prices.BNB || !prices.SOL || !prices.CORE || !prices.POL) {
+    try {
+      const ccRes = await fetch(
+        'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,SOL,USDT&tsyms=USD'
+      );
+      if (ccRes.ok) {
+        const cc = await ccRes.json();
+        const raw = cc.RAW || {};
+        for (const sym of ['ETH', 'BNB', 'POL', 'CORE', 'SOL', 'USDT']) {
+          if (!prices[sym] && raw[sym]?.USD?.PRICE) {
+            prices[sym] = {
+              usd: raw[sym].USD.PRICE,
+              change24h: raw[sym].USD.CHANGEPCT24HOUR || 0,
+              source: 'cryptocompare',
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Prices] CryptoCompare fetch skipped:', err.message);
+    }
+  }
+
+  const result = {
+    prices,
+    updatedAt: new Date(now).toISOString(),
+  };
+  priceCache = { data: result, updatedAt: now };
+  return result;
+}
+
+app.get('/api/prices', async (req, res) => {
+  try {
+    const data = await fetchLivePrices();
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: `Failed to fetch live prices: ${err.message}` });
+  }
+});
+
 // 3. Protocol Statistics API
 app.get('/api/stats', async (req, res) => {
   if (!pool) {
@@ -247,7 +327,9 @@ app.get('/api/stats', async (req, res) => {
       totalListingEvents: listingsStats.rows[0].count,
       totalListingFeesCollectedUsdt: listingsStats.rows[0].total_fees,
       officialFeeReceiver: OFFICIAL_FEE_RECEIVER,
+      officialOwnerWallet: OFFICIAL_OWNER_WALLET,
       listingFeeUsdt: LISTING_FEE_USDT,
+      ownerListingFeeUsdt: 0,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -274,8 +356,16 @@ app.get('/api/tokens', async (req, res) => {
     }
     sql += ' ORDER BY liquidity_usd DESC, created_at DESC LIMIT 100';
 
-    const result = await pool.query(sql, params);
-    res.json({ count: result.rows.length, tokens: result.rows });
+    const [result, livePricePayload] = await Promise.all([
+      pool.query(sql, params),
+      fetchLivePrices().catch(() => null),
+    ]);
+    const liveMap = livePricePayload?.prices || {};
+    const enrichedTokens = result.rows.map((row) => {
+      const live = liveMap[String(row.symbol || '').toUpperCase()];
+      return live ? { ...row, price_usd: live.usd, change_24h: live.change24h } : row;
+    });
+    res.json({ count: enrichedTokens.length, tokens: enrichedTokens });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -317,6 +407,18 @@ app.get('/api/listings', async (req, res) => {
   }
 });
 
+// 6b. Check Effective Listing Fee for a Wallet (Owner = 0 USDT)
+app.get('/api/listing-fee/:wallet', (req, res) => {
+  const wallet = req.params.wallet.trim();
+  const exempt = isOwnerWallet(wallet);
+  res.json({
+    wallet,
+    isOwnerExempt: exempt,
+    feeUsdt: exempt ? 0 : LISTING_FEE_USDT,
+    feeReceiver: OFFICIAL_FEE_RECEIVER,
+  });
+});
+
 // 7. Index Verified On-Chain Token Listing Event (Requires valid TxHash verified via RPC)
 app.post('/api/events/token-listed', async (req, res) => {
   if (!pool) {
@@ -329,11 +431,14 @@ app.post('/api/events/token-listed', async (req, res) => {
     return res.status(400).json({ error: 'Invalid tokenAddress, listedBy, or txHash format.' });
   }
 
-  if (!feeReceiver || feeReceiver.toLowerCase() !== OFFICIAL_FEE_RECEIVER) {
+  const ownerExempt = isOwnerWallet(listedBy);
+  if (!ownerExempt && (!feeReceiver || feeReceiver.toLowerCase() !== OFFICIAL_FEE_RECEIVER)) {
     return res.status(400).json({
       error: `Fee receiver must match official DEX wallet: ${OFFICIAL_FEE_RECEIVER}`,
     });
   }
+
+  const effectiveFeePaid = ownerExempt ? 0 : (parseFloat(feePaid) || LISTING_FEE_USDT);
 
   const client = await pool.connect();
   try {
@@ -349,9 +454,9 @@ app.post('/api/events/token-listed', async (req, res) => {
 
     await client.query(
       `INSERT INTO tokens (address, name, symbol, decimals, is_verified, listed_by, listing_tx_hash)
-       VALUES ($1, $2, $3, $4, FALSE, $5, $6)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (address) DO NOTHING`,
-      [tokenAddress, name, symbol, parseInt(decimals, 10) || 18, listedBy, txHash]
+      [tokenAddress, name, symbol, parseInt(decimals, 10) || 18, ownerExempt, listedBy, txHash]
     );
 
     const listingResult = await client.query(
@@ -364,7 +469,7 @@ app.post('/api/events/token-listed', async (req, res) => {
         symbol,
         parseInt(decimals, 10) || 18,
         listedBy,
-        parseFloat(feePaid) || LISTING_FEE_USDT,
+        effectiveFeePaid,
         OFFICIAL_FEE_RECEIVER,
         txHash,
         blockNumber,
@@ -372,7 +477,7 @@ app.post('/api/events/token-listed', async (req, res) => {
     );
 
     await client.query('COMMIT');
-    res.status(201).json({ success: true, listing: listingResult.rows[0] });
+    res.status(201).json({ success: true, ownerFeeExempt: ownerExempt, listing: listingResult.rows[0] });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
