@@ -208,15 +208,16 @@
       <div class="card-dark rounded-2xl p-6 space-y-4">
         <h2 class="text-xl font-bold">Create Liquidity Pool</h2>
         <div class="grid grid-cols-2 gap-3">
-          <select class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold"><option>BNB</option><option>TATA</option></select>
-          <select class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold"><option>USDT</option><option>BNB</option></select>
+          <select id="poolTokenA" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-white"><option>TATA</option><option>BNB</option><option>ETH</option><option>POL</option><option>CORE</option></select>
+          <select id="poolTokenB" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-white"><option>USDT</option><option>BNB</option><option>ETH</option><option>TATA</option></select>
         </div>
-        <select class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold">
+        <select class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-white">
           <option>0.05% (Stable Pair)</option>
           <option selected>0.30% (Standard Pair)</option>
           <option>1.00% (Exotic Pair)</option>
         </select>
-        <button onclick="alert('Connect wallet and deploy TataSwapFactory.sol on Mainnet to broadcast pool creation transaction.')" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Create Pool on Mainnet</button>
+        <div id="createPoolNotice" class="hidden text-xs p-3 rounded-xl bg-black/40 border border-gray-800"></div>
+        <button onclick="submitCreatePool()" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Create Pool on Mainnet</button>
       </div>
     </section>
 

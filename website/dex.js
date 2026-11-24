@@ -738,6 +738,54 @@ async function submitSwap() {
   }
 }
 
+async function submitCreatePool() {
+  const notice = document.getElementById("createPoolNotice");
+  if (!walletAddress) return openWalletModal();
+  const provider = getEvmProvider();
+  if (!provider) {
+    if (notice) {
+      notice.innerHTML = `<span class="text-yellow-300">Mobile Browser detected — tap <b>Connect Wallet</b> → open in <b>MetaMask / Trust Wallet</b> to broadcast pool creation on-chain.</span>`;
+      notice.classList.remove("hidden");
+    }
+    return openWalletModal();
+  }
+  const cfg = getContractConfig();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(cfg.router)) {
+    if (notice) {
+      notice.innerHTML = `<span class="text-yellow-300">Deploy <b>TataSwapFactory.sol / TataSwapRouter.sol</b> and paste your Router/Factory contract address in the <b>Admin</b> tab first.</span>`;
+      notice.classList.remove("hidden");
+    }
+    return;
+  }
+  const symA = document.getElementById("poolTokenA")?.value || "TATA";
+  const symB = document.getElementById("poolTokenB")?.value || "USDT";
+  const tokA = TOKENS.find((t) => t.symbol === symA);
+  const tokB = TOKENS.find((t) => t.symbol === symB);
+  if (!tokA || !tokB || !/^0x[a-fA-F0-9]{40}$/.test(tokA.address) || !/^0x[a-fA-F0-9]{40}$/.test(tokB.address)) {
+    return alert("Select two valid EVM tokens to create a pool.");
+  }
+  try {
+    const net = NETWORKS[activeNetKey];
+    await ensureEvmChain(provider, net);
+    const data = "0xc9c65396" + padHex32(tokA.address.replace("0x", "")) + padHex32(tokB.address.replace("0x", ""));
+    const txHash = await provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from: walletAddress, to: cfg.router, value: "0x0", data }]
+    });
+    const expUrl = `${net.explorer}/tx/${txHash}`;
+    if (notice) {
+      notice.innerHTML = `<span class="text-emerald-400 font-bold">Pool Tx Broadcasted! <a href="${expUrl}" target="_blank" class="underline">${txHash.slice(0, 12)}...</a></span>`;
+      notice.classList.remove("hidden");
+    }
+    saveLocalTx({ title: `Create Pool ${symA}/${symB}`, subtitle: `${net.name} Mainnet`, txHash, explorerUrl: expUrl });
+  } catch (err) {
+    if (notice) {
+      notice.innerText = "Create pool failed: " + err.message;
+      notice.classList.remove("hidden");
+    }
+  }
+}
+
 function submitAddLiquidity() {
   const provider = getEvmProvider();
   if (!provider) return connectWeb3Wallet();
