@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TataSwap App – 12-Page Web3 Decentralized Exchange</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    body { background-color: #090c12; color: #f5f7fa; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .card-dark { background-color: #131823; border: 1px solid #263249; }
+    .card-darker { background-color: #0d111a; border: 1px solid #1a2333; }
+    .gold-bg { background: linear-gradient(135deg, #f0b90b, #ffd859); color: #090c12; }
+    .nav-pill-active { background-color: rgba(240, 185, 11, 0.16); color: #f0b90b; border: 1px solid rgba(240, 185, 11, 0.45); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top App Bar -->
+  <header class="sticky top-0 z-50 bg-[#0b0e14]/95 backdrop-blur border-b border-gray-800 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <a href="index.html" class="flex items-center space-x-2">
+          <div class="w-9 h-9 rounded-xl gold-bg flex items-center justify-center font-black text-lg">T</div>
+          <div>
+            <span class="font-extrabold text-lg text-white">TataSwap</span>
+            <span class="block text-[10px] text-yellow-400 font-bold -mt-1">DEX Terminal</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Page Tabs -->
+      <div class="flex flex-wrap gap-1.5 text-xs font-semibold">
+        <button onclick="openPage('home')" data-page="home" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Home</button>
+        <button onclick="openPage('swap')" data-page="swap" class="page-btn nav-pill-active px-3 py-1.5 rounded-lg">Swap</button>
+        <button onclick="openPage('explore')" data-page="explore" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Explore</button>
+        <button onclick="openPage('details')" data-page="details" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Token Details</button>
+        <button onclick="openPage('listing')" data-page="listing" class="page-btn px-3 py-1.5 rounded-lg text-cyan-300 hover:text-cyan-200">List Token (5$)</button>
+        <button onclick="openPage('create-pool')" data-page="create-pool" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Create Pool</button>
+        <button onclick="openPage('add-liq')" data-page="add-liq" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Add Liquidity</button>
+        <button onclick="openPage('remove-liq')" data-page="remove-liq" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Remove Liquidity</button>
+        <button onclick="openPage('portfolio')" data-page="portfolio" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Portfolio</button>
+        <button onclick="openPage('history')" data-page="history" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">History</button>
+        <button onclick="openPage('analytics')" data-page="analytics" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Analytics</button>
+        <button onclick="openPage('admin')" data-page="admin" class="page-btn px-3 py-1.5 rounded-lg text-gray-300 hover:text-white">Admin</button>
+      </div>
+
+      <!-- Network & Wallet -->
+      <div class="flex items-center space-x-2">
+        <select id="networkSelect" onchange="changeNetwork()" class="bg-[#131823] border border-gray-700 rounded-xl px-3 py-2 text-xs font-bold text-yellow-400 focus:outline-none">
+          <option value="tataservice" selected>TataService Blockchain (810161)</option>
+          <option value="eth_mainnet">Ethereum Mainnet (1)</option>
+          <option value="bsc_mainnet">BNB Smart Chain (56)</option>
+          <option value="polygon_mainnet">Polygon Mainnet (137)</option>
+          <option value="core_mainnet">Core Blockchain (1116)</option>
+          <option value="solana_mainnet">Solana Mainnet (SOL)</option>
+        </select>
+        <button onclick="connectWeb3Wallet()" id="walletBtn" class="gold-bg px-4 py-2 rounded-xl text-xs font-extrabold flex items-center space-x-1.5">
+          <i class="fas fa-wallet"></i>
+          <span id="walletText">Connect Wallet</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+
+    <!-- 1. HOME DASHBOARD -->
+    <section id="page-home" class="dex-page hidden space-y-6">
+      <div class="card-dark rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-white">TataSwap Home Dashboard</h1>
+          <p class="text-xs text-gray-400 mt-1">Official Fee Receiver: <span class="text-cyan-400 font-mono">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</span></p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openPage('swap')" class="gold-bg px-4 py-2 rounded-xl text-xs font-bold">Swap</button>
+          <button onclick="openPage('listing')" class="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-bold">List Token (5 USDT)</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Active RPC Block</div><div id="dashBlock" class="text-xl font-black text-emerald-400 mt-1">Syncing...</div></div>
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Listing Fee</div><div id="dashListingFee" class="text-xl font-black text-yellow-400 mt-1">5.00 USDT</div></div>
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Indexed Tokens</div><div id="dashTokensCount" class="text-xl font-black text-white mt-1">3</div></div>
+      </div>
+    </section>
+
+    <!-- 2. SWAP -->
+    <section id="page-swap" class="dex-page flex justify-center py-4">
+      <div class="w-full max-w-md card-dark rounded-2xl p-5 space-y-3 shadow-2xl">
+        <div class="flex justify-between items-center">
+          <h2 class="text-lg font-bold">Swap</h2>
+          <div class="text-xs text-gray-400">Slippage:
+            <select id="slippageVal" onchange="recalcSwap()" class="bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-yellow-400 font-bold">
+              <option value="0.1">0.1%</option>
+              <option value="0.5" selected>0.5%</option>
+              <option value="1.0">1.0%</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-darker rounded-xl p-3.5">
+          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>You Pay</span><span id="swapBalIn">Balance: --</span></div>
+          <div class="flex justify-between items-center gap-2">
+            <input id="swapAmountIn" type="number" value="0.1" step="any" oninput="recalcSwap()" class="bg-transparent text-2xl font-bold text-white w-full focus:outline-none" />
+            <select id="swapInToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-yellow-400">
+              <option value="TATA">TATA</option><option value="BNB" selected>BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="SOL">SOL</option><option value="USDT">USDT</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-center -my-2">
+          <button onclick="flipSwap()" class="w-8 h-8 rounded-full card-dark border border-yellow-500/50 text-yellow-400 font-bold text-sm">⇅</button>
+        </div>
+        <div class="card-darker rounded-xl p-3.5">
+          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>You Receive</span><span>AMM Estimate</span></div>
+          <div class="flex justify-between items-center gap-2">
+            <span id="swapAmountOut" class="text-2xl font-bold text-emerald-400">62.29</span>
+            <select id="swapOutToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-emerald-400">
+              <option value="USDT" selected>USDT</option><option value="TATA">TATA</option><option value="BNB">BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="SOL">SOL</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-darker rounded-xl p-3 text-xs text-gray-400 space-y-1">
+          <div class="flex justify-between"><span>Rate</span><span id="swapRate" class="text-white">1 BNB = 624.50 USDT</span></div>
+          <div class="flex justify-between"><span>Minimum Received</span><span id="swapMinRec" class="text-white">61.98 USDT</span></div>
+          <div class="flex justify-between"><span>Fee Split</span><span class="text-white">0.20% LP + 0.05% Treasury</span></div>
+        </div>
+        <button onclick="submitSwap()" class="w-full py-3.5 rounded-xl gold-bg font-extrabold text-sm">Execute Swap</button>
+        <div id="swapNotice" class="text-xs text-center text-amber-300 hidden"></div>
+      </div>
+    </section>
+
+    <!-- 3. EXPLORE TOKENS -->
+    <section id="page-explore" class="dex-page hidden space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">Explore Tokens</h2>
+          <p id="explorerSourceLabel" class="text-xs text-gray-400">Showing core tokens (connect Backend URL on Home page to sync PostgreSQL registry)</p>
+        </div>
+        <input id="exploreSearch" oninput="renderTokensTable()" placeholder="Search name, symbol, or 0x address..." class="bg-[#131823] border border-gray-700 rounded-xl px-4 py-2 text-xs text-white w-full sm:w-72" />
+      </div>
+      <div class="card-dark rounded-2xl overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="border-b border-gray-800 text-gray-400 uppercase">
+            <tr><th class="p-4">Token</th><th class="p-4">Contract</th><th class="p-4">Price</th><th class="p-4">Status</th><th class="p-4">Action</th></tr>
+          </thead>
+          <tbody id="exploreTableBody" class="divide-y divide-gray-800/60"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. TOKEN DETAILS -->
+    <section id="page-details" class="dex-page hidden max-w-2xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 id="detailTitle" class="text-2xl font-black">BNB (BNB)</h2>
+            <p id="detailAddress" class="text-xs font-mono text-gray-400 mt-1">0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c</p>
+          </div>
+          <span id="detailPrice" class="text-2xl font-black text-emerald-400">$624.50</span>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="openPage('swap')" class="gold-bg px-5 py-2.5 rounded-xl text-xs font-bold">Trade Token</button>
+          <button onclick="openPage('add-liq')" class="px-5 py-2.5 rounded-xl border border-cyan-400/50 text-cyan-300 text-xs font-bold">Add Liquidity</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. CREATE TOKEN LISTING -->
+    <section id="page-listing" class="dex-page hidden max-w-2xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <h2 class="text-xl font-bold text-white">Permissionless Token Listing</h2>
+        <p class="text-xs text-gray-400">Inspect any BEP-20/ERC-20 contract on-chain and pay the automated 5 USDT listing fee directly to the DEX owner wallet.</p>
+        <input id="listAddrInput" placeholder="Enter 0x Token Contract Address" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-mono text-white" />
+        <button onclick="inspectListToken()" class="w-full py-2.5 rounded-xl bg-cyan-500 text-black font-bold text-xs">1. Detect Name, Symbol &amp; Decimals via RPC</button>
+        <div id="listPreview" class="card-darker rounded-xl p-4 text-xs space-y-1 hidden">
+          <div>Name: <strong id="lpName">-</strong> | Symbol: <strong id="lpSym" class="text-yellow-400">-</strong> | Decimals: <strong id="lpDec">18</strong></div>
+          <div class="text-amber-300 pt-1">⚠️ Community listed tokens start unverified. Traders must verify contract safety.</div>
+        </div>
+        <div class="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-xs space-y-1">
+          <div class="flex justify-between font-bold"><span>Required Fee:</span><span class="text-yellow-400">5.00 USDT</span></div>
+          <div>Receiver Wallet: <span class="font-mono text-cyan-400 break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</span></div>
+        </div>
+        <button onclick="submitListToken()" class="w-full py-3.5 rounded-xl gold-bg font-extrabold text-sm">2. Pay 5 USDT &amp; List Token</button>
+        <div id="listResultMsg" class="text-xs text-center text-amber-300 hidden"></div>
+      </div>
+    </section>
+
+    <!-- 6. CREATE LIQUIDITY POOL -->
+    <section id="page-create-pool" class="dex-page hidden max-w-lg mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <h2 class="text-xl font-bold">Create Liquidity Pool</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <select class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold"><option>BNB</option><option>TATA</option></select>
+          <select class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold"><option>USDT</option><option>BNB</option></select>
+        </div>
+        <select class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold">
+          <option>0.05% (Stable Pair)</option>
+          <option selected>0.30% (Standard Pair)</option>
+          <option>1.00% (Exotic Pair)</option>
+        </select>
+        <button onclick="alert('Connect wallet and deploy TataSwapFactory.sol on Mainnet to broadcast pool creation transaction.')" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Create Pool on Mainnet</button>
+      </div>
+    </section>
+
+    <!-- 7. ADD LIQUIDITY -->
+    <section id="page-add-liq" class="dex-page hidden max-w-lg mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <h2 class="text-xl font-bold">Add Liquidity (BNB / USDT)</h2>
+        <input type="number" placeholder="BNB Amount" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-sm text-white" />
+        <input type="number" placeholder="USDT Amount" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-sm text-white" />
+        <button onclick="alert('Approve tokens and call TataSwapRouter.addLiquidity() after contract deployment.')" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Supply Liquidity</button>
+      </div>
+    </section>
+
+    <!-- 8. REMOVE LIQUIDITY -->
+    <section id="page-remove-liq" class="dex-page hidden max-w-lg mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <h2 class="text-xl font-bold">Remove Liquidity</h2>
+        <label class="text-xs text-gray-400">Percentage to Withdraw: <span id="remPctLabel" class="text-yellow-400 font-bold">50%</span></label>
+        <input type="range" min="1" max="100" value="50" oninput="document.getElementById('remPctLabel').innerText=this.value+'%'" class="w-full accent-yellow-400" />
+        <button onclick="alert('Calls TataSwapPool.burn() to withdraw proportional token reserves.')" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm">Withdraw Liquidity</button>
+      </div>
+    </section>
+
+    <!-- 9. PORTFOLIO -->
+    <section id="page-portfolio" class="dex-page hidden max-w-2xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-3">
+        <h2 class="text-xl font-bold">Wallet Portfolio</h2>
+        <div class="card-darker rounded-xl p-4">
+          <div class="text-xs text-gray-400">Connected Address</div>
+          <div id="portAddr" class="text-sm font-mono text-yellow-400 font-bold break-all">Not connected</div>
+          <div class="text-xs text-gray-400 mt-3">On-Chain Balance</div>
+          <div id="portBal" class="text-2xl font-black text-white">--</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. TRANSACTION HISTORY -->
+    <section id="page-history" class="dex-page hidden max-w-3xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-3">
+        <h2 class="text-xl font-bold">Transaction History</h2>
+        <div id="historyList" class="text-xs text-gray-400">Connect your Backend API URL on the landing page to load indexed listing &amp; swap events.</div>
+      </div>
+    </section>
+
+    <!-- 11. ANALYTICS -->
+    <section id="page-analytics" class="dex-page hidden space-y-4">
+      <h2 class="text-xl font-bold">Protocol Analytics</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Swap Fee Rule</div><div class="text-lg font-bold mt-1">0.20% LP / 0.05% Protocol</div></div>
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Listing Fee Rule</div><div class="text-lg font-bold text-yellow-400 mt-1">5.00 USDT / Listing</div></div>
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Owner Receiver</div><div class="text-xs font-mono text-cyan-400 mt-2 break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</div></div>
+      </div>
+    </section>
+
+    <!-- 12. ADMIN DASHBOARD -->
+    <section id="page-admin" class="dex-page hidden max-w-2xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4 border-yellow-500/40">
+        <h2 class="text-xl font-bold">DEX Owner &amp; Admin Dashboard</h2>
+        <div class="card-darker rounded-xl p-4 text-xs space-y-2">
+          <div>Official Owner &amp; Fee Receiver: <span class="font-mono text-cyan-400 font-bold break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</span></div>
+          <div>Default Listing Fee: <strong class="text-yellow-400">5.00 USDT</strong></div>
+          <div>Contract Security: <span class="text-emerald-400">OnlyOwner • ReentrancyGuard • Pausable</span></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="dex.js"></script>
+</body>
+</html>

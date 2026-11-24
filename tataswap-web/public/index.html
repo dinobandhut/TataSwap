@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TataSwap – Permissionless Decentralized Exchange on BNB Smart Chain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    body {
+      background-color: #090c12;
+      color: #f5f7fa;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .glass-card {
+      background: rgba(19, 24, 35, 0.86);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(38, 50, 73, 0.9);
+    }
+    .gold-gradient {
+      background: linear-gradient(135deg, #f0b90b 0%, #ffd859 100%);
+      color: #0b0e14;
+    }
+    .gold-gradient:hover {
+      filter: brightness(1.07);
+    }
+    .hero-glow {
+      background: radial-gradient(circle at 50% 0%, rgba(240, 185, 11, 0.16), transparent 60%),
+                  radial-gradient(circle at 85% 30%, rgba(0, 242, 254, 0.10), transparent 45%);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col hero-glow">
+
+  <!-- Top Navigation -->
+  <header class="sticky top-0 z-50 border-b border-gray-800/80 bg-[#090c12]/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+      <a href="index.html" class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center font-black text-xl shadow-lg">T</div>
+        <div>
+          <span class="text-xl font-extrabold tracking-tight text-white">TataSwap</span>
+          <span class="block text-[10px] font-bold uppercase tracking-widest text-yellow-400">Decentralized Exchange</span>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center space-x-7 text-sm font-semibold text-gray-300">
+        <a href="#features" class="hover:text-yellow-400 transition">Features</a>
+        <a href="#listing" class="hover:text-yellow-400 transition">List Token (5 USDT)</a>
+        <a href="#networks" class="hover:text-yellow-400 transition">Networks</a>
+        <a href="#api-check" class="hover:text-yellow-400 transition">Backend API</a>
+        <a href="https://github.com/dinobandhut/Tataswap-web" target="_blank" class="hover:text-yellow-400 transition">
+          <i class="fab fa-github mr-1"></i>GitHub
+        </a>
+      </nav>
+
+      <div class="flex items-center space-x-3">
+        <span class="hidden sm:inline-flex items-center px-3 py-1.5 rounded-full bg-gray-900 border border-gray-700 text-xs font-semibold text-emerald-400">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
+          TataService Block: <span id="heroBlock" class="ml-1 font-mono">...</span>
+        </span>
+        <a href="dex.html" class="gold-gradient px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold shadow-lg transition flex items-center space-x-2">
+          <span>Launch DEX App</span>
+          <i class="fas fa-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 text-center">
+    <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-xs font-bold mb-6">
+      <i class="fas fa-bolt"></i>
+      <span>Uniswap V3 Inspired AMM • Permissionless Listing on BNB Smart Chain</span>
+    </div>
+
+    <h1 class="text-4xl sm:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-tight">
+      Swap, Earn &amp; List Any Token <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-cyan-400">Without Permission</span>
+    </h1>
+
+    <p class="mt-5 text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">
+      TataSwap is a non-custodial decentralized cryptocurrency exchange where any wallet user can trade BEP-20/ERC-20 tokens, create liquidity pools, and list new tokens instantly with transparent on-chain fees.
+    </p>
+
+    <div class="mt-9 flex flex-wrap justify-center gap-4">
+      <a href="dex.html" class="gold-gradient px-8 py-4 rounded-2xl text-base font-black shadow-2xl flex items-center space-x-2">
+        <i class="fas fa-exchange-alt"></i>
+        <span>Open TataSwap DEX</span>
+      </a>
+      <a href="dex.html#listing" class="px-8 py-4 rounded-2xl bg-cyan-500/15 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/25 text-base font-bold transition flex items-center space-x-2">
+        <i class="fas fa-plus-circle"></i>
+        <span>List Your Token (5 USDT)</span>
+      </a>
+    </div>
+
+    <!-- Protocol Stats Strip -->
+    <div class="mt-16 grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+      <div class="glass-card rounded-2xl p-5 text-left">
+        <div class="text-xs text-gray-400 font-semibold">Swap Fee Tiers</div>
+        <div class="text-2xl font-black text-white mt-1">0.05% – 1.0%</div>
+        <div class="text-[11px] text-emerald-400 mt-1">LP &amp; Protocol Split</div>
+      </div>
+      <div class="glass-card rounded-2xl p-5 text-left">
+        <div class="text-xs text-gray-400 font-semibold">Token Listing Fee</div>
+        <div class="text-2xl font-black text-yellow-400 mt-1">5.00 USDT</div>
+        <div class="text-[11px] text-gray-400 mt-1">100% On-Chain Transfer</div>
+      </div>
+      <div class="glass-card rounded-2xl p-5 text-left">
+        <div class="text-xs text-gray-400 font-semibold">Primary Chain</div>
+        <div class="text-2xl font-black text-cyan-400 mt-1">TataService</div>
+        <div class="text-[11px] text-emerald-400 mt-1">100% Mainnet • 6 Chains</div>
+      </div>
+      <div class="glass-card rounded-2xl p-5 text-left">
+        <div class="text-xs text-gray-400 font-semibold">Custody Model</div>
+        <div class="text-2xl font-black text-white mt-1">100% Web3</div>
+        <div class="text-[11px] text-emerald-400 mt-1">Non-Custodial Smart Contracts</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t border-gray-800/70">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl font-black text-white">Complete 12-Page DEX Platform</h2>
+      <p class="text-sm text-gray-400 mt-2">Real MetaMask/Trust Wallet integration, AMM liquidity math, and Layerbase PostgreSQL indexing.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass-card rounded-2xl p-6 space-y-3">
+        <div class="w-12 h-12 rounded-xl bg-yellow-500/15 text-yellow-400 flex items-center justify-center text-xl">
+          <i class="fas fa-sync-alt"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white">AMM Swap Engine</h3>
+        <p class="text-sm text-gray-400">Live constant-product quotes (x * y = k), custom slippage tolerance, price impact alerts, minimum received protection, and transaction deadlines.</p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 space-y-3">
+        <div class="w-12 h-12 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center text-xl">
+          <i class="fas fa-bolt"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white">Permissionless Token Listing</h3>
+        <p class="text-sm text-gray-400">Connect MetaMask or Trust Wallet, paste your contract address for automatic RPC metadata verification, pay 5 USDT, and list instantly without admin approval.</p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 space-y-3">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xl">
+          <i class="fas fa-water"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white">Liquidity Pools &amp; LP Fees</h3>
+        <p class="text-sm text-gray-400">Create custom token pairs via <code>TataSwapFactory</code>, add or remove liquidity anytime, and earn 0.20% LP fees on every trade.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Permissionless Listing Flow -->
+  <section id="listing" class="max-w-7xl mx-auto px-4 sm:px-6 py-16 border-t border-gray-800/70">
+    <div class="glass-card rounded-3xl p-8 md:p-10 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+      <div class="space-y-4">
+        <span class="px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-300 text-xs font-bold">On-Chain Fee Collection</span>
+        <h2 class="text-3xl font-black text-white">Automated 5 USDT Listing System</h2>
+        <p class="text-sm text-gray-400">
+          Listing fees are never stored in a centralized database. Every listing transaction atomically verifies payment through <code>TataSwapListingFee.sol</code> and transfers 5 USDT directly to the official DEX fee receiver wallet:
+        </p>
+        <div class="p-4 rounded-xl bg-[#090c12] border border-gray-800">
+          <div class="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Official DEX Owner &amp; Fee Receiver</div>
+          <div class="text-sm font-mono text-cyan-400 font-bold mt-1 break-all select-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</div>
+        </div>
+        <div class="pt-2">
+          <a href="dex.html#listing" class="gold-gradient inline-flex items-center space-x-2 px-6 py-3 rounded-xl text-sm font-extrabold">
+            <span>List a Token Now</span>
+            <i class="fas fa-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-start space-x-3 p-4 rounded-xl bg-[#0d111a] border border-gray-800">
+          <span class="w-7 h-7 rounded-full gold-gradient flex items-center justify-center font-black text-xs shrink-0">1</span>
+          <div>
+            <h4 class="font-bold text-sm text-white">Connect Wallet &amp; Enter Contract</h4>
+            <p class="text-xs text-gray-400 mt-0.5">Select TataService, ETH, BNB, Polygon, Core, or Solana Mainnet and paste any token contract.</p>
+          </div>
+        </div>
+        <div class="flex items-start space-x-3 p-4 rounded-xl bg-[#0d111a] border border-gray-800">
+          <span class="w-7 h-7 rounded-full gold-gradient flex items-center justify-center font-black text-xs shrink-0">2</span>
+          <div>
+            <h4 class="font-bold text-sm text-white">Live Blockchain Metadata Inspection</h4>
+            <p class="text-xs text-gray-400 mt-0.5">Automatically reads contract bytecode, name, symbol, and decimals via JSON-RPC.</p>
+          </div>
+        </div>
+        <div class="flex items-start space-x-3 p-4 rounded-xl bg-[#0d111a] border border-gray-800">
+          <span class="w-7 h-7 rounded-full gold-gradient flex items-center justify-center font-black text-xs shrink-0">3</span>
+          <div>
+            <h4 class="font-bold text-sm text-white">Pay 5 USDT &amp; Auto-Register</h4>
+            <p class="text-xs text-gray-400 mt-0.5">If registration reverts, fee payment reverts safely—zero risk of lost funds.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Multi-Chain Architecture -->
+  <section id="networks" class="max-w-7xl mx-auto px-4 sm:px-6 py-14 border-t border-gray-800/70">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl font-black text-white">Multi-Chain Mainnet Architecture</h2>
+      <p class="text-xs text-gray-400 mt-1">Mainnet-only routing across TataService Blockchain, Ethereum, BNB Chain, Polygon, Core, and Solana.</p>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-center">
+      <div class="glass-card rounded-xl p-4 border-yellow-500/40">
+        <div class="text-yellow-400 font-black">TataService</div>
+        <div class="text-[11px] text-cyan-300 mt-1">TATA • Chain 810161</div>
+      </div>
+      <div class="glass-card rounded-xl p-4">
+        <div class="text-indigo-400 font-black">Ethereum</div>
+        <div class="text-[11px] text-emerald-400 mt-1">Mainnet • Chain 1</div>
+      </div>
+      <div class="glass-card rounded-xl p-4">
+        <div class="text-yellow-400 font-black">BNB Chain</div>
+        <div class="text-[11px] text-emerald-400 mt-1">Mainnet • Chain 56</div>
+      </div>
+      <div class="glass-card rounded-xl p-4">
+        <div class="text-purple-400 font-black">Polygon</div>
+        <div class="text-[11px] text-emerald-400 mt-1">Mainnet • Chain 137</div>
+      </div>
+      <div class="glass-card rounded-xl p-4">
+        <div class="text-orange-400 font-black">Core</div>
+        <div class="text-[11px] text-emerald-400 mt-1">Mainnet • Chain 1116</div>
+      </div>
+      <div class="glass-card rounded-xl p-4">
+        <div class="text-emerald-400 font-black">Solana</div>
+        <div class="text-[11px] text-emerald-400 mt-1">Mainnet-Beta • SOL</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Backend API Diagnostics -->
+  <section id="api-check" class="max-w-7xl mx-auto px-4 sm:px-6 py-14 border-t border-gray-800/70">
+    <div class="glass-card rounded-2xl p-6 max-w-3xl mx-auto space-y-4">
+      <h3 class="text-xl font-bold text-white">Connect Backend &amp; Layerbase Database</h3>
+      <p class="text-xs text-gray-400">Paste your Render / Cloud Run Backend API URL to verify PostgreSQL &amp; Alchemy RPC connectivity and save it for the DEX App:</p>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input id="backendApiInput" type="url" placeholder="https://tataswap-api.onrender.com" class="flex-1 bg-[#090c12] border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-yellow-400" />
+        <button onclick="checkBackendHealth()" class="gold-gradient px-5 py-2.5 rounded-xl text-xs font-extrabold">Save &amp; Check /health</button>
+      </div>
+      <pre id="healthOutput" class="p-3 rounded-xl bg-[#090c12] border border-gray-800 text-[11px] text-emerald-400 font-mono overflow-x-auto hidden"></pre>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-gray-800/80 py-6 px-4">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-gray-500">
+      <div>© 2026 TataSwap DEX • Permissionless Decentralized Exchange</div>
+      <div class="flex space-x-5">
+        <a href="dex.html" class="hover:text-yellow-400">Launch DEX</a>
+        <a href="dex.html#listing" class="hover:text-yellow-400">List Token</a>
+        <a href="dex.html#admin" class="hover:text-yellow-400">Owner Panel</a>
+        <a href="https://github.com/dinobandhut/Tataswap-web" target="_blank" class="hover:text-yellow-400">Tataswap-web GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const savedApi = localStorage.getItem("tataswap_api_url");
+    if (savedApi) document.getElementById("backendApiInput").value = savedApi;
+
+    async function loadBlock() {
+      try {
+        const res = await fetch("https://rpctata.duckdns.org/rpc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] })
+        });
+        const data = await res.json();
+        if (data.result) {
+          document.getElementById("heroBlock").innerText = "#" + parseInt(data.result, 16).toLocaleString();
+        }
+      } catch {
+        document.getElementById("heroBlock").innerText = "Mainnet";
+      }
+    }
+
+    async function checkBackendHealth() {
+      const url = document.getElementById("backendApiInput").value.trim().replace(/\/$/, "");
+      const out = document.getElementById("healthOutput");
+      if (!url) return alert("Enter your Backend URL first.");
+      localStorage.setItem("tataswap_api_url", url);
+      out.classList.remove("hidden");
+      out.innerText = "Connecting to " + url + "/health ...";
+      try {
+        const res = await fetch(url + "/health");
+        const json = await res.json();
+        out.innerText = JSON.stringify(json, null, 2);
+      } catch (err) {
+        out.innerText = "Error: " + err.message;
+      }
+    }
+
+    loadBlock();
+  </script>
+</body>
+</html>

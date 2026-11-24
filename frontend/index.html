@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TataSwap – Permissionless Decentralized Exchange (DEX)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0b0e14; color: #f5f6f8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .gold-accent { color: #f0b90b; }
+    .gold-bg { background-color: #f0b90b; color: #000; }
+    .gold-bg:hover { background-color: #ffd84d; }
+    .card-dark { background-color: #131823; border: 1px solid #263249; }
+    .card-darker { background-color: #0d111a; border: 1px solid #1a2333; }
+    .nav-active { color: #f0b90b !important; border-bottom: 2px solid #f0b90b; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Navigation Bar -->
+  <nav class="border-b border-gray-800 bg-[#0d111a]/95 backdrop-blur sticky top-0 z-50 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-2 cursor-pointer" onclick="switchTab('home')">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-300 flex items-center justify-center font-black text-black text-lg">T</div>
+          <div>
+            <span class="text-xl font-bold tracking-tight">TataSwap</span>
+            <span class="text-[10px] text-yellow-400 font-bold block -mt-1">DEX v3 • BSC</span>
+          </div>
+        </div>
+        <div class="hidden md:flex space-x-5 text-sm font-semibold text-gray-300">
+          <button data-tab="home" onclick="switchTab('home')" class="nav-btn hover:text-yellow-400 py-1 transition">Home</button>
+          <button data-tab="swap" onclick="switchTab('swap')" class="nav-btn nav-active hover:text-yellow-400 py-1 transition">Swap</button>
+          <button data-tab="explore" onclick="switchTab('explore')" class="nav-btn hover:text-yellow-400 py-1 transition">Explore</button>
+          <button data-tab="pools" onclick="switchTab('pools')" class="nav-btn hover:text-yellow-400 py-1 transition">Pools</button>
+          <button data-tab="listing" onclick="switchTab('listing')" class="nav-btn text-cyan-400 hover:text-cyan-300 py-1 font-bold transition">List Token (5 USDT)</button>
+          <button data-tab="portfolio" onclick="switchTab('portfolio')" class="nav-btn hover:text-yellow-400 py-1 transition">Portfolio</button>
+          <button data-tab="admin" onclick="switchTab('admin')" class="nav-btn hover:text-yellow-400 py-1 transition">Admin</button>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <button onclick="switchToBscTestnet()" id="networkBadge" class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full card-dark text-xs font-semibold hover:border-yellow-500/60 transition">
+          <span id="netDot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+          <span id="netName">BSC Testnet</span>
+        </button>
+        <button id="connectWalletBtn" onclick="connectWallet()" class="gold-bg px-4 py-2 rounded-xl text-xs font-bold transition shadow-lg flex items-center space-x-2">
+          <i class="fas fa-wallet"></i>
+          <span id="walletLabel">Connect Wallet</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Nav -->
+    <div class="md:hidden flex overflow-x-auto space-x-4 pt-3 mt-2 border-t border-gray-800/80 text-xs font-semibold text-gray-300">
+      <button data-tab="home" onclick="switchTab('home')" class="nav-btn whitespace-nowrap pb-1">Home</button>
+      <button data-tab="swap" onclick="switchTab('swap')" class="nav-btn nav-active whitespace-nowrap pb-1">Swap</button>
+      <button data-tab="explore" onclick="switchTab('explore')" class="nav-btn whitespace-nowrap pb-1">Explore</button>
+      <button data-tab="pools" onclick="switchTab('pools')" class="nav-btn whitespace-nowrap pb-1">Pools</button>
+      <button data-tab="listing" onclick="switchTab('listing')" class="nav-btn text-cyan-400 whitespace-nowrap pb-1">List (5 USDT)</button>
+      <button data-tab="portfolio" onclick="switchTab('portfolio')" class="nav-btn whitespace-nowrap pb-1">Portfolio</button>
+      <button data-tab="admin" onclick="switchTab('admin')" class="nav-btn whitespace-nowrap pb-1">Admin</button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+
+    <!-- TAB 0: HOME DASHBOARD -->
+    <section id="tab-home" class="tab-content hidden py-4 space-y-6">
+      <div class="card-dark rounded-2xl p-6 md:p-8 bg-gradient-to-br from-[#131823] to-[#1a2234]">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div class="space-y-3 max-w-xl">
+            <span class="px-3 py-1 rounded-full bg-yellow-500/15 text-yellow-400 text-xs font-bold">BNB Smart Chain • Permissionless AMM</span>
+            <h1 class="text-3xl md:text-4xl font-black tracking-tight">Trade, Provide Liquidity &amp; List Tokens on <span class="gold-accent">TataSwap</span></h1>
+            <p class="text-sm text-gray-400">Any wallet user can swap BEP-20 tokens, create liquidity pools, or list a new token permissionlessly for a 5 USDT on-chain fee.</p>
+            <div class="flex flex-wrap gap-3 pt-2">
+              <button onclick="switchTab('swap')" class="gold-bg px-5 py-2.5 rounded-xl text-sm font-bold">Start Swapping</button>
+              <button onclick="switchTab('listing')" class="px-5 py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-sm font-bold hover:bg-cyan-500/30">List Token (5 USDT)</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 min-w-[260px]">
+            <div class="card-darker p-4 rounded-xl">
+              <div class="text-xs text-gray-400">BSC RPC Block</div>
+              <div id="liveBlockHeight" class="text-lg font-black text-emerald-400 mt-1">Syncing...</div>
+            </div>
+            <div class="card-darker p-4 rounded-xl">
+              <div class="text-xs text-gray-400">Listing Fee</div>
+              <div class="text-lg font-black text-yellow-400 mt-1">5.00 USDT</div>
+            </div>
+            <div class="card-darker p-4 rounded-xl col-span-2">
+              <div class="text-xs text-gray-400">Official DEX Fee Receiver</div>
+              <div class="text-xs font-mono text-cyan-400 font-bold mt-1 break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 1: SWAP INTERFACE -->
+    <section id="tab-swap" class="tab-content flex justify-center py-6">
+      <div class="w-full max-w-md card-dark rounded-2xl p-5 shadow-2xl">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold">Instant Swap</h2>
+          <div class="flex items-center space-x-2 text-xs text-gray-400">
+            <span>Slippage:</span>
+            <select id="slippageSelect" onchange="updateQuote()" class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-yellow-400 font-bold">
+              <option value="0.1">0.1%</option>
+              <option value="0.5" selected>0.5%</option>
+              <option value="1.0">1.0%</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Pay -->
+        <div class="card-darker rounded-xl p-3.5 mb-2">
+          <div class="flex justify-between text-xs text-gray-400 mb-1">
+            <span>You Pay</span>
+            <span>Balance: <span id="balIn">--</span></span>
+          </div>
+          <div class="flex justify-between items-center gap-2">
+            <input type="number" id="swapIn" value="0.1" min="0" step="any" oninput="updateQuote()" class="bg-transparent text-2xl font-bold focus:outline-none w-3/5 text-white" />
+            <select id="tokenInSelect" onchange="updateQuote()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-yellow-400 focus:outline-none">
+              <option value="BNB">BNB</option>
+              <option value="USDT">USDT</option>
+              <option value="TATA">TATA</option>
+            </select>
+          </div>
+          <div id="usdIn" class="text-xs text-gray-500 mt-1">~$62.45 USD</div>
+        </div>
+
+        <div class="flex justify-center -my-2 relative z-10">
+          <button onclick="invertSwap()" class="w-8 h-8 rounded-full card-dark text-yellow-400 hover:text-white border border-yellow-500/50 flex items-center justify-center font-bold text-sm shadow">
+            ⇅
+          </button>
+        </div>
+
+        <!-- Receive -->
+        <div class="card-darker rounded-xl p-3.5 mt-2 mb-4">
+          <div class="flex justify-between text-xs text-gray-400 mb-1">
+            <span>You Receive</span>
+            <span>Estimated Output</span>
+          </div>
+          <div class="flex justify-between items-center gap-2">
+            <span id="swapOut" class="text-2xl font-bold text-emerald-400">62.26</span>
+            <select id="tokenOutSelect" onchange="updateQuote()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-emerald-400 focus:outline-none">
+              <option value="USDT" selected>USDT</option>
+              <option value="BNB">BNB</option>
+              <option value="TATA">TATA</option>
+            </select>
+          </div>
+          <div id="usdOut" class="text-xs text-gray-500 mt-1">~$62.26 USD</div>
+        </div>
+
+        <!-- AMM details -->
+        <div class="card-darker rounded-xl p-3 text-xs space-y-1.5 text-gray-400 mb-4">
+          <div class="flex justify-between">
+            <span>Exchange Rate</span>
+            <span id="rateLabel" class="text-white font-medium">1 BNB = 624.50 USDT</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Minimum Received</span>
+            <span id="minReceivedLabel" class="text-white font-medium">61.95 USDT</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Trading Fee (0.25%)</span>
+            <span class="text-white font-medium">0.20% LP / 0.05% Protocol</span>
+          </div>
+        </div>
+
+        <button onclick="handleSwapClick()" id="swapActionButton" class="w-full py-3.5 rounded-xl gold-bg font-extrabold text-base shadow-xl transition">
+          Connect Wallet to Swap
+        </button>
+        <div id="swapTxMsg" class="mt-3 text-center text-xs text-amber-300 font-semibold hidden"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: EXPLORE TOKENS -->
+    <section id="tab-explore" class="tab-content hidden py-4 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-bold">Token Explorer</h2>
+          <p class="text-xs text-gray-400">Verified core assets and permissionlessly listed BEP-20 tokens.</p>
+        </div>
+        <input id="tokenSearchInput" oninput="renderExplorer()" placeholder="Search symbol, name, or 0x address..." class="bg-[#131823] border border-gray-700 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-yellow-400 w-full sm:w-72" />
+      </div>
+      <div id="explorerList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- TAB 3: LIQUIDITY POOLS -->
+    <section id="tab-pools" class="tab-content hidden py-4 space-y-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-xl font-bold">Liquidity Pools</h2>
+          <p class="text-xs text-gray-400">Provide liquidity via TataSwapFactory &amp; TataSwapRouter to earn 0.20% of swap fees.</p>
+        </div>
+        <button onclick="switchTab('listing')" class="gold-bg px-4 py-2 rounded-xl text-xs font-bold">+ List Token</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card-dark rounded-xl p-4 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-base">BNB / USDT</span>
+            <span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs font-bold">0.3% Fee Tier</span>
+          </div>
+          <div class="text-xs text-gray-400">AMM Pair • Constant Product (x * y = k)</div>
+          <div class="text-xs text-emerald-400 font-bold">Deploy TataSwapFactory &amp; Router on BSC to activate live pool reserves</div>
+        </div>
+        <div class="card-dark rounded-xl p-4 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-base">TATA / BNB</span>
+            <span class="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs font-bold">0.3% Fee Tier</span>
+          </div>
+          <div class="text-xs text-gray-400">AMM Pair • Constant Product (x * y = k)</div>
+          <div class="text-xs text-emerald-400 font-bold">Permissionless pool creation enabled</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: PERMISSIONLESS LISTING (5 USDT) -->
+    <section id="tab-listing" class="tab-content hidden py-6 max-w-2xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 shadow-2xl space-y-5">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl font-bold">⚡</div>
+          <div>
+            <h2 class="text-xl font-bold text-white">Permissionless Token Listing</h2>
+            <p class="text-xs text-gray-400">Live RPC inspection on BNB Smart Chain Testnet — no admin approval required.</p>
+          </div>
+        </div>
+
+        <div class="card-darker rounded-xl p-4 space-y-3">
+          <label class="text-xs font-semibold text-gray-300">BEP-20 / ERC-20 Token Contract Address</label>
+          <input type="text" id="listingContractInput" placeholder="0x337610d27c682E347C9cD60BE4b3b107C9d34dDd" class="w-full bg-[#131823] border border-gray-700 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-yellow-400 font-mono" />
+          <button onclick="inspectContractOnChain()" id="inspectBtn" class="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs rounded-lg transition">
+            Inspect Token on BSC Testnet RPC
+          </button>
+        </div>
+
+        <!-- Detected Info Preview -->
+        <div id="detectedInfoBox" class="card-darker rounded-xl p-4 space-y-2 hidden">
+          <div class="text-xs font-bold text-yellow-400 uppercase tracking-wider">On-Chain Contract Metadata</div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>Name: <strong id="detName" class="text-white">-</strong></div>
+            <div>Symbol: <strong id="detSymbol" class="text-yellow-400">-</strong></div>
+            <div>Decimals: <strong id="detDec" class="text-white">18</strong></div>
+            <div>Bytecode: <span id="detStatus" class="text-emerald-400 font-bold">Verified</span></div>
+          </div>
+          <div class="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
+            ⚠️ Community-listed tokens are unverified by default. Always verify contract source code before trading.
+          </div>
+        </div>
+
+        <!-- Listing Fee Notification -->
+        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-bold text-white">Required On-Chain Listing Fee</span>
+            <span class="text-lg font-black text-yellow-400">5.00 USDT</span>
+          </div>
+          <div class="text-xs text-gray-300">
+            Official DEX Fee Receiver Wallet:
+            <span class="text-cyan-400 font-mono block select-all font-bold mt-0.5 break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</span>
+          </div>
+          <p class="text-[11px] text-gray-400">100% of the listing fee transfers directly to the DEX owner wallet via <code>TataSwapListingFee.sol</code>.</p>
+        </div>
+
+        <button onclick="submitListing()" class="w-full py-3.5 gold-bg rounded-xl font-bold text-sm shadow-xl transition">
+          Pay 5 USDT &amp; Register Token Listing
+        </button>
+        <div id="listingMsg" class="text-xs font-bold text-center hidden"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: PORTFOLIO -->
+    <section id="tab-portfolio" class="tab-content hidden py-6 max-w-2xl mx-auto">
+      <div class="card-dark rounded-2xl p-6 space-y-4">
+        <h2 class="text-xl font-bold">My Web3 Portfolio</h2>
+        <div class="card-darker rounded-xl p-4 space-y-2">
+          <div class="text-xs text-gray-400">Connected Wallet</div>
+          <div id="portfolioAddress" class="text-sm font-mono font-bold text-yellow-400 break-all">Not connected — click Connect Wallet above</div>
+          <div class="text-xs text-gray-400 pt-2">On-Chain Native Balance</div>
+          <div id="portfolioNativeBal" class="text-2xl font-black text-white">--</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: ADMIN DASHBOARD -->
+    <section id="tab-admin" class="tab-content hidden py-6 max-w-3xl mx-auto space-y-6">
+      <div class="card-dark rounded-2xl p-6 shadow-2xl space-y-4 border-yellow-500/40">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-bold text-white">Owner &amp; Admin Dashboard</h2>
+            <p class="text-xs text-gray-400">Protocol parameter configuration for official DEX owner.</p>
+          </div>
+          <span class="px-3 py-1 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded-full">On-Chain Owner</span>
+        </div>
+
+        <div class="card-darker rounded-xl p-4 space-y-2">
+          <div class="text-xs text-gray-400">Official Fee Receiver Wallet</div>
+          <div class="text-sm font-mono font-bold text-cyan-400 select-all break-all">0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4</div>
+          <div class="text-xs text-gray-400 mt-2">Configured Listing Fee: <strong class="text-white">5 USDT</strong></div>
+          <div class="text-xs text-gray-400">Supported Networks: <strong class="text-white">BSC Testnet (97), BSC Mainnet (56), Ethereum, Polygon, Arbitrum, Base</strong></div>
+          <div class="text-xs text-gray-400">Emergency Protocol Status: <span class="text-emerald-400 font-bold">ACTIVE</span></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-gray-800/80 py-4 text-center text-xs text-gray-500">
+    TataSwap DEX • Permissionless AMM &amp; On-Chain Listing Fee System • BNB Smart Chain
+  </footer>
+
+  <script>
+    const BSC_TESTNET_RPC = "https://data-seed-prebsc-1-s1.binance.org:8545";
+    const OFFICIAL_RECEIVER = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4";
+    let connectedAddress = null;
+    let currentChainId = null;
+
+    const TOKEN_PRICES = { BNB: 624.50, USDT: 1.00, TATA: 1.45 };
+    const EXPLORER_TOKENS = [
+      { symbol: "BNB", name: "BNB (Native)", address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", price: "$624.50", verified: true },
+      { symbol: "USDT", name: "Tether USD (BSC Testnet)", address: "0x337610d27c682E347C9cD60BE4b3b107C9d34dDd", price: "$1.00", verified: true },
+      { symbol: "TATA", name: "TataSwap Token", address: "0x7A7A59a9DeCe06b86f1e58a2E49c7D59A1b7A7A5", price: "$1.45", verified: true }
+    ];
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const active = document.getElementById('tab-' + tabId);
+      if (active) active.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('nav-active', btn.dataset.tab === tabId);
+      });
+
+      if (tabId === 'explore') renderExplorer();
+    }
+
+    async function rpcCall(method, params = []) {
+      const res = await fetch(BSC_TESTNET_RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params })
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message);
+      return json.result;
+    }
+
+    async function refreshBlockNumber() {
+      try {
+        const hex = await rpcCall("eth_blockNumber");
+        document.getElementById("liveBlockHeight").innerText = "#" + parseInt(hex, 16).toLocaleString();
+      } catch {
+        document.getElementById("liveBlockHeight").innerText = "RPC Offline";
+      }
+    }
+
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert("MetaMask or Trust Wallet browser extension not detected. Please open TataSwap inside MetaMask / Trust Wallet browser or install MetaMask.");
+        return;
+      }
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        connectedAddress = accounts[0];
+        currentChainId = await window.ethereum.request({ method: "eth_chainId" });
+        updateWalletUI();
+        await fetchWalletBalance();
+      } catch (err) {
+        alert("Wallet connection cancelled: " + err.message);
+      }
+    }
+
+    async function switchToBscTestnet() {
+      if (!window.ethereum) return;
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x61" }]
+        });
+      } catch (switchError) {
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: "0x61",
+              chainName: "BNB Smart Chain Testnet",
+              nativeCurrency: { name: "tBNB", symbol: "tBNB", decimals: 18 },
+              rpcUrls: [BSC_TESTNET_RPC],
+              blockExplorerUrls: ["https://testnet.bscscan.com"]
+            }]
+          });
+        }
+      }
+    }
+
+    async function fetchWalletBalance() {
+      if (!connectedAddress) return;
+      try {
+        const hexBal = await rpcCall("eth_getBalance", [connectedAddress, "latest"]);
+        const bnbBal = (Number(BigInt(hexBal)) / 1e18).toFixed(4);
+        document.getElementById("balIn").innerText = bnbBal + " tBNB";
+        document.getElementById("portfolioNativeBal").innerText = bnbBal + " tBNB";
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function updateWalletUI() {
+      const short = connectedAddress.slice(0, 6) + "..." + connectedAddress.slice(-4);
+      document.getElementById("walletLabel").innerText = short;
+      document.getElementById("portfolioAddress").innerText = connectedAddress;
+      document.getElementById("swapActionButton").innerText = "Swap Tokens";
+    }
+
+    function updateQuote() {
+      const inSym = document.getElementById("tokenInSelect").value;
+      const outSym = document.getElementById("tokenOutSelect").value;
+      const inVal = parseFloat(document.getElementById("swapIn").value) || 0;
+      const slippage = parseFloat(document.getElementById("slippageSelect").value) || 0.5;
+
+      const rate = TOKEN_PRICES[inSym] / TOKEN_PRICES[outSym];
+      const outVal = inVal * rate * 0.9975;
+      const minRec = outVal * (1 - slippage / 100);
+
+      document.getElementById("swapOut").innerText = outVal.toFixed(4);
+      document.getElementById("usdIn").innerText = "~$" + (inVal * TOKEN_PRICES[inSym]).toFixed(2) + " USD";
+      document.getElementById("usdOut").innerText = "~$" + (outVal * TOKEN_PRICES[outSym]).toFixed(2) + " USD";
+      document.getElementById("rateLabel").innerText = `1 ${inSym} = ${rate.toFixed(4)} ${outSym}`;
+      document.getElementById("minReceivedLabel").innerText = `${minRec.toFixed(4)} ${outSym}`;
+    }
+
+    function invertSwap() {
+      const s1 = document.getElementById("tokenInSelect");
+      const s2 = document.getElementById("tokenOutSelect");
+      const tmp = s1.value;
+      s1.value = s2.value;
+      s2.value = tmp;
+      updateQuote();
+    }
+
+    function handleSwapClick() {
+      const msg = document.getElementById("swapTxMsg");
+      if (!connectedAddress) {
+        connectWallet();
+        return;
+      }
+      msg.innerText = "Deploy TataSwapRouter.sol on BSC Testnet & set router address in config to sign live swaps.";
+      msg.classList.remove("hidden");
+    }
+
+    function decodeAbiString(hex) {
+      if (!hex || hex === "0x") return null;
+      const clean = hex.replace(/^0x/, "");
+      if (clean.length < 128) return null;
+      const len = parseInt(clean.slice(64, 128), 16);
+      if (!len || len > 100) return null;
+      const dataHex = clean.slice(128, 128 + len * 2);
+      let str = "";
+      for (let i = 0; i < dataHex.length; i += 2) {
+        const code = parseInt(dataHex.substr(i, 2), 16);
+        if (code >= 32 && code <= 126) str += String.fromCharCode(code);
+      }
+      return str.trim();
+    }
+
+    async function inspectContractOnChain() {
+      const addr = document.getElementById("listingContractInput").value.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+        alert("Please enter a valid 42-character 0x contract address.");
+        return;
+      }
+      const btn = document.getElementById("inspectBtn");
+      btn.innerText = "Querying BSC Testnet RPC...";
+      btn.disabled = true;
+
+      try {
+        const code = await rpcCall("eth_getCode", [addr, "latest"]);
+        if (!code || code === "0x") {
+          alert("No contract bytecode found at this address on BSC Testnet.");
+          return;
+        }
+        const [nameHex, symbolHex, decHex] = await Promise.all([
+          rpcCall("eth_call", [{ to: addr, data: "0x06fdde03" }, "latest"]),
+          rpcCall("eth_call", [{ to: addr, data: "0x95d89b41" }, "latest"]),
+          rpcCall("eth_call", [{ to: addr, data: "0x313ce567" }, "latest"])
+        ]);
+
+        const name = decodeAbiString(nameHex) || "Custom Token";
+        const symbol = decodeAbiString(symbolHex) || "TOKEN";
+        const decimals = decHex && decHex !== "0x" ? parseInt(decHex, 16) : 18;
+
+        document.getElementById("detName").innerText = name;
+        document.getElementById("detSymbol").innerText = symbol;
+        document.getElementById("detDec").innerText = decimals;
+        document.getElementById("detStatus").innerText = "Live Bytecode Verified";
+        document.getElementById("detectedInfoBox").classList.remove("hidden");
+      } catch (err) {
+        alert("RPC Inspection error: " + err.message);
+      } finally {
+        btn.innerText = "Inspect Token on BSC Testnet RPC";
+        btn.disabled = false;
+      }
+    }
+
+    function submitListing() {
+      const msg = document.getElementById("listingMsg");
+      if (!connectedAddress) {
+        connectWallet();
+        return;
+      }
+      msg.className = "text-xs font-bold text-center text-amber-300";
+      msg.innerText = `Ready: Deploy TataSwapListingFee.sol on BSC Testnet to send 5 USDT directly to ${OFFICIAL_RECEIVER}.`;
+      msg.classList.remove("hidden");
+    }
+
+    function renderExplorer() {
+      const q = (document.getElementById("tokenSearchInput").value || "").toLowerCase();
+      const list = document.getElementById("explorerList");
+      const filtered = EXPLORER_TOKENS.filter(t =>
+        t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.address.toLowerCase().includes(q)
+      );
+      list.innerHTML = filtered.map(t => `
+        <div class="card-dark rounded-xl p-4 space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-base">${t.symbol} <span class="text-xs text-gray-400 font-normal">${t.name}</span></span>
+            <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold">${t.verified ? "Verified" : "Unverified"}</span>
+          </div>
+          <div class="text-lg font-black text-white">${t.price}</div>
+          <div class="text-[11px] font-mono text-gray-400 truncate">${t.address}</div>
+        </div>
+      `).join("");
+    }
+
+    refreshBlockNumber();
+    updateQuote();
+    renderExplorer();
+  </script>
+</body>
+</html>

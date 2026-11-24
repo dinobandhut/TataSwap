@@ -1,0 +1,14 @@
+{
+  "name": "tataswap-web",
+  "version": "1.0.0",
+  "description": "TataSwap Decentralized Exchange (DEX) Web Frontend",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dinobandhut/Tataswap-web.git"
+  },
+  "scripts": {
+    "build": "echo 'TataSwap Web static assets ready in ./public'",
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy"
+  }
+}
