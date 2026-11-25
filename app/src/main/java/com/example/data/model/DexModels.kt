@@ -91,14 +91,21 @@ data class LiquidityPool(
     val id: String,
     val tokenA: Token,
     val tokenB: Token,
-    val feeTierPercent: Double = 0.3, // 0.05%, 0.3%, 1.0%
+    val feeTierPercent: Double = 0.25, // 0.0075%, 0.0375%, 0.25%, 0.9%, or custom
     val reserveA: Double,
     val reserveB: Double,
     val tvlUsd: Double,
     val volume24h: Double,
     val feeAprPercent: Double,
     val userLpBalance: Double = 0.0,
-    val userSharePercent: Double = 0.0
+    val userSharePercent: Double = 0.0,
+    val networkId: String = "tataservice",
+    val hookAddress: String? = null,
+    val initialPrice: Double? = null,
+    val minPrice: Double? = null,
+    val maxPrice: Double? = null,
+    val isFullRange: Boolean = true,
+    val isUserDeployed: Boolean = false
 )
 
 data class SwapQuote(

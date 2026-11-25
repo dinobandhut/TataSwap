@@ -177,9 +177,19 @@ class DexRepository(
 
     fun buildWalletDappDeepLink(walletType: String): String {
         val targetUrl = "https://tataswap.onrender.com/dex.html"
+        val encodedUrl = java.net.URLEncoder.encode(targetUrl, "UTF-8")
         return when (walletType.lowercase()) {
             "metamask" -> "https://link.metamask.io/dapp/tataswap.onrender.com/dex.html"
             "trust" -> "https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetUrl"
+            "coinbase" -> "https://go.cb-w.com/dapp?cb_url=$encodedUrl"
+            "binance" -> "bnc://app.binance.com/cedefi/browser?url=$encodedUrl"
+            "okx" -> {
+                val okxInner = java.net.URLEncoder.encode("okx://wallet/dapp/url?dappUrl=$encodedUrl", "UTF-8")
+                "https://www.okx.com/download?deeplink=$okxInner"
+            }
+            "bitget" -> "https://bkcode.vip?action=dapp&url=$encodedUrl"
+            "rainbow" -> "https://rnbwapp.com"
+            "safepal" -> "https://link.safepal.io/dapp?url=$encodedUrl"
             else -> targetUrl
         }
     }
@@ -420,11 +430,17 @@ class DexRepository(
         tokenB: Token,
         feeTier: Double,
         amountA: Double,
-        amountB: Double
+        amountB: Double,
+        hookAddress: String? = null,
+        initialPrice: Double? = null,
+        isFullRange: Boolean = true,
+        minPrice: Double? = null,
+        maxPrice: Double? = null
     ): Result<TransactionRecord> {
-        val poolId = "${tokenA.symbol}-${tokenB.symbol}"
+        val cleanHook = hookAddress?.trim()?.takeIf { it.isNotEmpty() }
+        val poolId = "${tokenA.symbol}-${tokenB.symbol}-${feeTier}"
         val initialTvl = (amountA * tokenA.priceUsd) + (amountB * tokenB.priceUsd)
-        val initialLp = kotlin.math.sqrt(amountA * amountB)
+        val initialLp = kotlin.math.sqrt((amountA * amountB).coerceAtLeast(0.0))
 
         val newPool = LiquidityPool(
             id = poolId,
@@ -437,18 +453,27 @@ class DexRepository(
             volume24h = 0.0,
             feeAprPercent = 25.0,
             userLpBalance = initialLp,
-            userSharePercent = 100.0
+            userSharePercent = 100.0,
+            networkId = _currentNetwork.value.id,
+            hookAddress = cleanHook,
+            initialPrice = initialPrice,
+            minPrice = if (isFullRange) null else minPrice,
+            maxPrice = if (isFullRange) null else maxPrice,
+            isFullRange = isFullRange,
+            isUserDeployed = true
         )
 
         _pools.update { listOf(newPool) + it }
 
+        val rangeLabel = if (isFullRange) "Full Range" else "Range ${minPrice ?: 0.0}–${maxPrice?.toString() ?: "∞"}"
+        val hookLabel = if (cleanHook != null) " • Hooked" else ""
         val txHash = generateTxHash()
         val tx = TransactionRecord(
             id = UUID.randomUUID().toString(),
             txHash = txHash,
             type = TransactionType.ADD_LIQUIDITY,
             title = "Create Pool ${tokenA.symbol}/${tokenB.symbol}",
-            description = "Supplied $amountA ${tokenA.symbol} & $amountB ${tokenB.symbol} (Fee Tier: $feeTier%)",
+            description = "Supplied $amountA ${tokenA.symbol} & $amountB ${tokenB.symbol} (Tier: $feeTier% • $rangeLabel$hookLabel)",
             amountIn = amountA,
             amountOut = amountB,
             status = "Confirmed",

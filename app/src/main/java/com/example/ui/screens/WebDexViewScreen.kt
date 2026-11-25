@@ -111,13 +111,30 @@ fun WebDexViewScreen() {
                             request: WebResourceRequest?
                         ): Boolean {
                             val url = request?.url?.toString() ?: return false
-                            val isWalletDeepLink = url.startsWith("metamask:") ||
-                                url.startsWith("trust:") ||
-                                url.startsWith("wc:") ||
-                                url.startsWith("ethereum:") ||
-                                url.startsWith("https://link.metamask.io/") ||
-                                url.startsWith("https://link.trustwallet.com/")
-                            if (isWalletDeepLink) {
+                            val walletPrefixes = listOf(
+                                "metamask:",
+                                "trust:",
+                                "cbwallet:",
+                                "bnc:",
+                                "okx:",
+                                "bitkeep:",
+                                "rainbow:",
+                                "safepalwallet:",
+                                "tpoutside:",
+                                "tpdapp:",
+                                "wc:",
+                                "ethereum:",
+                                "intent:",
+                                "https://link.metamask.io/",
+                                "https://link.trustwallet.com/",
+                                "https://go.cb-w.com/",
+                                "https://www.okx.com/download",
+                                "https://bkcode.vip",
+                                "https://rnbwapp.com",
+                                "https://link.safepal.io/",
+                                "https://www.binance.com/en/web3wallet"
+                            )
+                            if (walletPrefixes.any { url.startsWith(it, ignoreCase = true) }) {
                                 launchExternalUri(url)
                                 return true
                             }

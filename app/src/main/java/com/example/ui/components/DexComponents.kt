@@ -288,14 +288,24 @@ fun WalletConnectDialog(
 ) {
     var inputAddress by remember { mutableStateOf("") }
     var addressError by remember { mutableStateOf<String?>(null) }
+    var showMoreWallets by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    fun openExternalUrl(url: String) {
+    val targetDexUrl = "https://tataswap.onrender.com/dex.html"
+    val encodedDexUrl = remember { java.net.URLEncoder.encode(targetDexUrl, "UTF-8") }
+
+    fun openExternalUrl(url: String, fallbackUrl: String? = null) {
         try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             context.startActivity(intent)
         } catch (_: Exception) {
+            if (fallbackUrl != null) {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
@@ -309,7 +319,7 @@ fun WalletConnectDialog(
             ) {
                 Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = BnbGold)
                 Text(
-                    text = if (connectedAddress != null) "Wallet Account" else "Connect Web3 Wallet",
+                    text = if (connectedAddress != null) "Wallet Account" else "Connect a wallet",
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
@@ -320,7 +330,7 @@ fun WalletConnectDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (connectedAddress != null) {
                     Card(
@@ -357,21 +367,28 @@ fun WalletConnectDialog(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         OutlinedButton(
                             onClick = { openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html") },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("MetaMask", fontSize = 12.sp, color = BnbGold)
+                            Text("MetaMask", fontSize = 11.sp, color = BnbGold)
                         }
                         OutlinedButton(
-                            onClick = { openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=https://tataswap.onrender.com/dex.html") },
+                            onClick = { openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetDexUrl") },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Trust Wallet", fontSize = 12.sp, color = NeonCyan)
+                            Text("Trust", fontSize = 11.sp, color = NeonCyan)
+                        }
+                        OutlinedButton(
+                            onClick = { openExternalUrl(targetDexUrl) },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Chrome", fontSize = 11.sp, color = CryptoGreen)
                         }
                     }
 
@@ -386,85 +403,143 @@ fun WalletConnectDialog(
                         Text("Disconnect Wallet")
                     }
                 } else {
-                    Text(
-                        text = "Open directly in MetaMask or Trust Wallet for real on-chain signing, or paste your 0x wallet address to track live balances:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                    // Open in Google Chrome banner
+                    Surface(
+                        onClick = { openExternalUrl(targetDexUrl) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = CryptoGreenBg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Open in Google Chrome", fontWeight = FontWeight.Bold, color = CryptoGreen, fontSize = 13.sp)
+                                Text("Connect any Web3 browser extension or mobile wallet", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            }
+                            Icon(Icons.Default.OpenInBrowser, contentDescription = "Open in Google Chrome", tint = CryptoGreen, modifier = Modifier.size(20.dp))
+                        }
+                    }
+
+                    WalletOptionRow(
+                        emoji = "🛡️",
+                        badgeColor = Color(0xFF0500FF),
+                        borderColor = NeonCyan.copy(alpha = 0.5f),
+                        title = "Trust Wallet Mobile & Extension",
+                        subtitle = "Tap to open in Trust Wallet DApp Browser",
+                        actionColor = NeonCyan,
+                        onClick = {
+                            openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetDexUrl")
+                        }
                     )
 
-                    // MetaMask Deep Link Option
-                    Surface(
-                        onClick = {
-                            openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html")
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF6851B).copy(alpha = 0.6f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                    WalletOptionRow(
+                        emoji = "🔗",
+                        badgeColor = Color(0xFF3B99FC),
+                        borderColor = Color(0xFF3B99FC).copy(alpha = 0.55f),
+                        title = "WalletConnect (All Wallets)",
+                        subtitle = if (showMoreWallets) "Hide mobile wallet apps" else "OKX, Bitget, SafePal, Rainbow & more",
+                        actionColor = Color(0xFF3B99FC),
+                        actionLabel = if (showMoreWallets) "Hide" else "Select",
+                        onClick = { showMoreWallets = !showMoreWallets }
+                    )
+
+                    if (showMoreWallets) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFF6851B)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("🦊", fontSize = 18.sp)
+                            WalletOptionRow(
+                                emoji = "⚫",
+                                badgeColor = Color(0xFF1F2937),
+                                borderColor = DarkSurfaceBorder,
+                                title = "OKX Wallet",
+                                subtitle = "Tap to open in OKX Web3 Wallet",
+                                actionColor = NeonCyan,
+                                onClick = {
+                                    val okxInner = java.net.URLEncoder.encode("okx://wallet/dapp/url?dappUrl=$encodedDexUrl", "UTF-8")
+                                    openExternalUrl("https://www.okx.com/download?deeplink=$okxInner")
                                 }
-                                Column {
-                                    Text("MetaMask (Open App)", fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text("Launch & sign real txs in MetaMask", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            )
+                            WalletOptionRow(
+                                emoji = "💠",
+                                badgeColor = Color(0xFF00F0FF),
+                                borderColor = DarkSurfaceBorder,
+                                title = "Bitget Wallet",
+                                subtitle = "Tap to open in Bitget DApp Browser",
+                                actionColor = NeonCyan,
+                                onClick = {
+                                    openExternalUrl("https://bkcode.vip?action=dapp&url=$encodedDexUrl")
                                 }
-                            }
-                            Icon(Icons.Default.OpenInNew, contentDescription = "Open MetaMask", tint = BnbGold, modifier = Modifier.size(18.dp))
+                            )
+                            WalletOptionRow(
+                                emoji = "🔐",
+                                badgeColor = Color(0xFF4A40FF),
+                                borderColor = DarkSurfaceBorder,
+                                title = "SafePal Wallet",
+                                subtitle = "Tap to open in SafePal App",
+                                actionColor = NeonCyan,
+                                onClick = {
+                                    openExternalUrl("https://link.safepal.io/dapp?url=$encodedDexUrl")
+                                }
+                            )
+                            WalletOptionRow(
+                                emoji = "🌈",
+                                badgeColor = Color(0xFF001E59),
+                                borderColor = DarkSurfaceBorder,
+                                title = "Rainbow Wallet",
+                                subtitle = "Tap to launch Rainbow Web3 App",
+                                actionColor = NeonCyan,
+                                onClick = {
+                                    openExternalUrl("https://rnbwapp.com")
+                                }
+                            )
                         }
                     }
 
-                    // Trust Wallet Deep Link Option
-                    Surface(
+                    WalletOptionRow(
+                        emoji = "🦊",
+                        badgeColor = Color(0xFFF6851B),
+                        borderColor = Color(0xFFF6851B).copy(alpha = 0.6f),
+                        title = "MetaMask",
+                        subtitle = "Tap to open in MetaMask Mobile Browser",
+                        actionColor = BnbGold,
                         onClick = {
-                            openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=https://tataswap.onrender.com/dex.html")
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF0500FF)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("🛡️", fontSize = 18.sp)
-                                }
-                                Column {
-                                    Text("Trust Wallet (Open App)", fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text("Launch & sign real txs in Trust", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                }
-                            }
-                            Icon(Icons.Default.OpenInNew, contentDescription = "Open Trust Wallet", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                            openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html")
                         }
-                    }
+                    )
+
+                    WalletOptionRow(
+                        emoji = "🔵",
+                        badgeColor = Color(0xFF0052FF),
+                        borderColor = Color(0xFF0052FF).copy(alpha = 0.55f),
+                        title = "Coinbase Wallet",
+                        subtitle = "Tap to open in Coinbase Wallet App",
+                        actionColor = NeonCyan,
+                        onClick = {
+                            openExternalUrl("https://go.cb-w.com/dapp?cb_url=$encodedDexUrl")
+                        }
+                    )
+
+                    WalletOptionRow(
+                        emoji = "🟡",
+                        badgeColor = BnbGold,
+                        borderColor = BnbGold.copy(alpha = 0.55f),
+                        title = "Binance Wallet",
+                        subtitle = "BNB Smart Chain Web3 wallet",
+                        actionColor = BnbGold,
+                        onClick = {
+                            openExternalUrl(
+                                "bnc://app.binance.com/cedefi/browser?url=$encodedDexUrl",
+                                "https://www.binance.com/en/web3wallet"
+                            )
+                        }
+                    )
 
                     // App Owner Wallet Option (0 Listing Fee)
                     Surface(
@@ -481,15 +556,15 @@ fun WalletConnectDialog(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
                                     .background(CryptoGreen),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.VerifiedUser, contentDescription = "Owner", tint = Color.Black, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.VerifiedUser, contentDescription = "Owner", tint = Color.Black, modifier = Modifier.size(18.dp))
                             }
                             Column {
-                                Text("App Owner Wallet (0 Fee)", fontWeight = FontWeight.Bold, color = CryptoGreen)
+                                Text("App Owner Wallet (0 Fee)", fontWeight = FontWeight.Bold, color = CryptoGreen, fontSize = 13.sp)
                                 Text("0xD9e5...1CA4 • Free Token Listing", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             }
                         }
@@ -548,6 +623,61 @@ fun WalletConnectDialog(
             }
         }
     )
+}
+
+@Composable
+private fun WalletOptionRow(
+    emoji: String,
+    badgeColor: Color,
+    borderColor: Color,
+    title: String,
+    subtitle: String,
+    actionColor: Color,
+    actionLabel: String = "Connect",
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = DarkSurfaceElevated,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(badgeColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(emoji, fontSize = 16.sp)
+                }
+                Column {
+                    Text(title, fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(subtitle, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Text(
+                text = actionLabel,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = actionColor,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+    }
 }
 
 @Composable

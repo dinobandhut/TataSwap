@@ -289,8 +289,23 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
                     )
                     DexScreen.CREATE_POOL -> CreatePoolScreen(
                         allTokens = tokens,
-                        onCreatePool = { tokenA, tokenB, feeTier, amountA, amountB ->
-                            viewModel.createPool(tokenA, tokenB, feeTier, amountA, amountB)
+                        existingPools = pools,
+                        currentNetwork = currentNetwork,
+                        connectedWallet = connectedWallet,
+                        onOpenWalletModal = { viewModel.openWalletModal() },
+                        onCreatePool = { tokenA, tokenB, feeTier, amountA, amountB, hookAddress, initialPrice, isFullRange, minPrice, maxPrice ->
+                            viewModel.createPool(
+                                tokenA = tokenA,
+                                tokenB = tokenB,
+                                feeTier = feeTier,
+                                amountA = amountA,
+                                amountB = amountB,
+                                hookAddress = hookAddress,
+                                initialPrice = initialPrice,
+                                isFullRange = isFullRange,
+                                minPrice = minPrice,
+                                maxPrice = maxPrice
+                            )
                         },
                         onBack = { viewModel.navigateBack() }
                     )

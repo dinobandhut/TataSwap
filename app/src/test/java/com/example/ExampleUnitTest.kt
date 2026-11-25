@@ -91,8 +91,43 @@ class ExampleUnitTest {
         val repo = DexRepository()
         assertTrue(repo.buildWalletDappDeepLink("metamask").startsWith("https://link.metamask.io/dapp/"))
         assertTrue(repo.buildWalletDappDeepLink("trust").startsWith("https://link.trustwallet.com/open_url"))
+        assertTrue(repo.buildWalletDappDeepLink("coinbase").startsWith("https://go.cb-w.com/dapp"))
+        assertTrue(repo.buildWalletDappDeepLink("binance").startsWith("bnc://app.binance.com/"))
+        assertTrue(repo.buildWalletDappDeepLink("okx").startsWith("https://www.okx.com/download"))
+        assertTrue(repo.buildWalletDappDeepLink("bitget").startsWith("https://bkcode.vip"))
+        assertTrue(repo.buildWalletDappDeepLink("safepal").startsWith("https://link.safepal.io/dapp"))
 
         val sendUri = repo.buildNativeTransferDeepLink("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", 1.0, "metamask")
         assertTrue(sendUri.contains("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4@810161?value=1000000000000000000"))
+    }
+
+    @Test
+    fun `verify 2-step create pool supports fee tiers, hook address, initial price, and custom range`() {
+        val repo = DexRepository()
+        val pol = repo.tokens.value.firstOrNull { it.symbol == "USDT" } ?: repo.tokens.value[0]
+        val tata = repo.tokens.value.firstOrNull { it.symbol == "TATA" } ?: repo.tokens.value[1]
+
+        val res = repo.createLiquidityPool(
+            tokenA = pol,
+            tokenB = tata,
+            feeTier = 0.9,
+            amountA = 100.0,
+            amountB = 145.0,
+            hookAddress = "0x000000000000000000000000000000000000H001",
+            initialPrice = 1.45,
+            isFullRange = false,
+            minPrice = 1.1,
+            maxPrice = 1.9
+        )
+
+        assertTrue(res.isSuccess)
+        val created = repo.pools.value.first()
+        assertEquals(0.9, created.feeTierPercent, 0.0001)
+        assertEquals("0x000000000000000000000000000000000000H001", created.hookAddress)
+        assertEquals(1.45, created.initialPrice ?: 0.0, 0.0001)
+        assertFalse(created.isFullRange)
+        assertEquals(1.1, created.minPrice ?: 0.0, 0.0001)
+        assertEquals(1.9, created.maxPrice ?: 0.0, 0.0001)
+        assertTrue(created.isUserDeployed)
     }
 }

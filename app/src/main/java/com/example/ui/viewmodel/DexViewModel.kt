@@ -364,12 +364,33 @@ class DexViewModel(
     }
 
     // --- LIQUIDITY ACTIONS ---
-    fun createPool(tokenA: Token, tokenB: Token, feeTier: Double, amountA: Double, amountB: Double) {
+    fun createPool(
+        tokenA: Token,
+        tokenB: Token,
+        feeTier: Double,
+        amountA: Double,
+        amountB: Double,
+        hookAddress: String? = null,
+        initialPrice: Double? = null,
+        isFullRange: Boolean = true,
+        minPrice: Double? = null,
+        maxPrice: Double? = null
+    ) {
         viewModelScope.launch {
-            val res = repository.createLiquidityPool(tokenA, tokenB, feeTier, amountA, amountB)
+            val res = repository.createLiquidityPool(
+                tokenA = tokenA,
+                tokenB = tokenB,
+                feeTier = feeTier,
+                amountA = amountA,
+                amountB = amountB,
+                hookAddress = hookAddress,
+                initialPrice = initialPrice,
+                isFullRange = isFullRange,
+                minPrice = minPrice,
+                maxPrice = maxPrice
+            )
             res.onSuccess { tx ->
                 _snackbarMessage.emit("Liquidity Pool Created! Tx: ${tx.txHash.take(10)}...")
-                navigateTo(DexScreen.EXPLORE_TOKENS)
             }.onFailure {
                 _snackbarMessage.emit("Pool Creation Failed: ${it.message}")
             }

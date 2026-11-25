@@ -63,19 +63,92 @@ let TOKENS = [
 let activeNetKey = "tataservice";
 let walletAddress = localStorage.getItem("tataswap_wallet") || null;
 let walletMode = localStorage.getItem("tataswap_wallet_mode") || "none";
+let walletProviderLabel = localStorage.getItem("tataswap_wallet_label") || "Web3 Wallet";
 let nativeBalanceVal = 0;
 let discoveredProviders = [];
+let activeProvider = null;
+let wcProjectIdCache = (localStorage.getItem("tataswap_wc_project_id") || "").trim();
+
+function registerEip6963Provider(detail) {
+  if (!detail?.provider) return;
+  const rdns = detail.info?.rdns || detail.info?.name || ("provider_" + discoveredProviders.length);
+  if (!discoveredProviders.some(d => (d.info?.rdns || d.info?.name) === rdns)) {
+    discoveredProviders.push(detail);
+  }
+}
 
 window.addEventListener("eip6963:announceProvider", (event) => {
-  if (event?.detail?.provider) {
-    discoveredProviders.push(event.detail);
-  }
+  registerEip6963Provider(event?.detail);
 });
 window.dispatchEvent(new Event("eip6963:requestProvider"));
 
+function getAllDetectedWallets() {
+  const wallets = [];
+  const seen = new Set();
+  const pushWallet = (id, name, provider) => {
+    if (!provider || seen.has(provider)) return;
+    seen.add(provider);
+    wallets.push({ id, name, provider });
+  };
+
+  for (const d of discoveredProviders) {
+    const label = d.info?.name || "Browser Wallet";
+    const id = (d.info?.rdns || label).toLowerCase();
+    pushWallet(id, label, d.provider);
+  }
+
+  if (Array.isArray(window.ethereum?.providers)) {
+    for (const p of window.ethereum.providers) {
+      const name = p.isMetaMask ? "MetaMask" : p.isTrust || p.isTrustWallet ? "Trust Wallet" : p.isCoinbaseWallet ? "Coinbase Wallet" : p.isOkxWallet ? "OKX Wallet" : p.isBitKeep ? "Bitget Wallet" : p.isBinance ? "Binance Wallet" : "Browser Wallet";
+      pushWallet(name.toLowerCase(), name, p);
+    }
+  }
+
+  if (window.trustwallet) pushWallet("trust", "Trust Wallet", window.trustwallet);
+  if (window.coinbaseWalletExtension) pushWallet("coinbase", "Coinbase Wallet", window.coinbaseWalletExtension);
+  if (window.BinanceChain) pushWallet("binance", "Binance Wallet", window.BinanceChain);
+  if (window.okxwallet) pushWallet("okx", "OKX Wallet", window.okxwallet);
+  if (window.bitkeep?.ethereum) pushWallet("bitget", "Bitget Wallet", window.bitkeep.ethereum);
+
+  if (window.ethereum) {
+    const p = window.ethereum;
+    const name = p.isMetaMask ? "MetaMask" : p.isTrust || p.isTrustWallet ? "Trust Wallet" : p.isCoinbaseWallet ? "Coinbase Wallet" : p.isOkxWallet ? "OKX Wallet" : p.isBitKeep ? "Bitget Wallet" : p.isBinance ? "Binance Wallet" : "Browser Wallet";
+    pushWallet(name.toLowerCase(), name, p);
+  }
+  return wallets;
+}
+
+function findProviderForWallet(type) {
+  const list = getAllDetectedWallets();
+  const t = type.toLowerCase();
+  if (t === "trust") {
+    return list.find(w => w.id.includes("trust") || w.name.toLowerCase().includes("trust") || w.provider?.isTrust || w.provider?.isTrustWallet)?.provider || null;
+  }
+  if (t === "metamask") {
+    return list.find(w => (w.id.includes("metamask") || (w.provider?.isMetaMask && !w.provider?.isTrust && !w.provider?.isBraveWallet)))?.provider || null;
+  }
+  if (t === "coinbase") {
+    return list.find(w => w.id.includes("coinbase") || w.name.toLowerCase().includes("coinbase") || w.provider?.isCoinbaseWallet)?.provider || window.coinbaseWalletExtension || null;
+  }
+  if (t === "binance") {
+    return list.find(w => w.id.includes("binance") || w.name.toLowerCase().includes("binance") || w.provider?.isBinance)?.provider || window.BinanceChain || null;
+  }
+  if (t === "okx") {
+    return list.find(w => w.id.includes("okx") || w.name.toLowerCase().includes("okx") || w.provider?.isOkxWallet)?.provider || window.okxwallet || null;
+  }
+  if (t === "bitget") {
+    return list.find(w => w.id.includes("bitget") || w.id.includes("bitkeep") || w.provider?.isBitKeep)?.provider || window.bitkeep?.ethereum || null;
+  }
+  if (t === "rainbow") {
+    return list.find(w => w.id.includes("rainbow") || w.provider?.isRainbow)?.provider || null;
+  }
+  return null;
+}
+
 function getEvmProvider() {
-  if (window.ethereum) return window.ethereum;
-  if (discoveredProviders.length > 0) return discoveredProviders[0].provider;
+  if (activeProvider) return activeProvider;
+  const detected = getAllDetectedWallets();
+  if (detected.length > 0) return detected[0].provider;
   return null;
 }
 
@@ -97,6 +170,7 @@ function updateWalletHeaderUi() {
     if (portAddr) portAddr.innerText = "Not connected";
   }
   updateListingFeeUi();
+  updateCreatePoolActionUi();
 }
 
 function updateListingFeeUi() {
@@ -132,6 +206,10 @@ function openPage(pageId) {
 
   if (pageId === "explore") renderTokensTable();
   if (pageId === "listing") updateListingFeeUi();
+  if (pageId === "create-pool") {
+    renderCreatePoolUi();
+    renderOnChainPools();
+  }
   if (pageId === "portfolio") renderPortfolioHoldings();
   if (pageId === "history") renderLocalHistory();
   if (pageId === "admin") loadContractConfig();
@@ -162,11 +240,18 @@ async function syncFromBackend() {
   const apiUrl = localStorage.getItem("tataswap_api_url") || (window.location.protocol.startsWith("http") ? "" : null);
   if (apiUrl === null) return;
   try {
-    const [tokensRes, listingsRes] = await Promise.all([
-      fetch(apiUrl + "/api/tokens"),
-      fetch(apiUrl + "/api/listings")
+    const [tokensRes, listingsRes, configRes] = await Promise.all([
+      fetch(apiUrl + "/api/tokens").catch(() => null),
+      fetch(apiUrl + "/api/listings").catch(() => null),
+      fetch(apiUrl + "/api/config").catch(() => null)
     ]);
-    if (tokensRes.ok) {
+    if (configRes && configRes.ok) {
+      const cfg = await configRes.json();
+      if (cfg?.walletConnectProjectId && !wcProjectIdCache) {
+        wcProjectIdCache = cfg.walletConnectProjectId;
+      }
+    }
+    if (tokensRes && tokensRes.ok) {
       const data = await tokensRes.json();
       if (Array.isArray(data.tokens) && data.tokens.length > 0) {
         const bySym = {};
@@ -203,7 +288,7 @@ async function syncFromBackend() {
         renderTokensTable();
       }
     }
-    if (listingsRes.ok) {
+    if (listingsRes && listingsRes.ok) {
       const lData = await listingsRes.json();
       if (Array.isArray(lData.listings) && lData.listings.length > 0) {
         renderLocalHistory(lData.listings);
@@ -214,55 +299,166 @@ async function syncFromBackend() {
   }
 }
 
+async function ensureEvmChain(provider, net) {
+  if (!provider || !net?.chainIdHex) return;
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: net.chainIdHex }]
+    });
+  } catch (e) {
+    if (e.code === 4902) {
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: net.chainIdHex,
+          chainName: net.name,
+          nativeCurrency: { name: net.symbol, symbol: net.symbol, decimals: 18 },
+          rpcUrls: [net.rpc],
+          blockExplorerUrls: [net.explorer]
+        }]
+      });
+    }
+  }
+}
+
 async function changeNetwork() {
   activeNetKey = document.getElementById("networkSelect").value;
   refreshBlock();
+  renderOnChainPools();
   if (walletAddress) refreshBalance();
   const net = NETWORKS[activeNetKey];
   const provider = getEvmProvider();
   if (provider) {
     try {
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: net.chainIdHex }]
-      });
+      await ensureEvmChain(provider, net);
     } catch (e) {
-      if (e.code === 4902) {
-        try {
-          await provider.request({
-            method: "wallet_addEthereumChain",
-            params: [{
-              chainId: net.chainIdHex,
-              chainName: net.name,
-              nativeCurrency: { name: net.symbol, symbol: net.symbol, decimals: 18 },
-              rpcUrls: [net.rpc],
-              blockExplorerUrls: [net.explorer]
-            }]
-          });
-        } catch (addErr) {
-          console.warn("Add network failed:", addErr.message);
-        }
-      }
+      console.warn("Switch network skipped:", e.message);
     }
   }
 }
 
-function updateDeepLinks() {
+function getWalletDeepLink(type) {
   const currentUrl = window.location.href;
+  const encodedUrl = encodeURIComponent(currentUrl);
   const hostPath = window.location.host + window.location.pathname;
-  const mm = document.getElementById("deepLinkMetaMask");
-  const tr = document.getElementById("deepLinkTrust");
-  if (mm) mm.href = `https://link.metamask.io/dapp/${hostPath}`;
-  if (tr) tr.href = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}`;
+  switch (type) {
+    case "metamask":
+      return `https://link.metamask.io/dapp/${hostPath}`;
+    case "trust":
+      return `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodedUrl}`;
+    case "coinbase":
+      return `https://go.cb-w.com/dapp?cb_url=${encodedUrl}`;
+    case "binance":
+      return `bnc://app.binance.com/cedefi/browser?url=${encodedUrl}`;
+    case "okx":
+      return `https://www.okx.com/download?deeplink=${encodeURIComponent("okx://wallet/dapp/url?dappUrl=" + encodedUrl)}`;
+    case "bitget":
+      return `https://bkcode.vip?action=dapp&url=${encodedUrl}`;
+    case "safepal":
+      return `https://link.safepal.io/dapp?url=${encodedUrl}`;
+    case "rainbow":
+      return "https://rnbwapp.com";
+    default:
+      return currentUrl;
+  }
+}
+
+function openInNewBrowserTab() {
+  window.open(window.location.href, "_blank", "noopener");
+}
+
+function attachProviderEvents(provider) {
+  if (!provider?.on || provider.__tataswapEventsBound) return;
+  provider.__tataswapEventsBound = true;
+  provider.on("accountsChanged", (accounts) => {
+    if (Array.isArray(accounts) && accounts.length > 0) {
+      walletAddress = accounts[0];
+      localStorage.setItem("tataswap_wallet", walletAddress);
+      updateWalletHeaderUi();
+      refreshBalance();
+    } else {
+      disconnectWallet();
+    }
+  });
+  provider.on("chainChanged", () => {
+    refreshBlock();
+    if (walletAddress) refreshBalance();
+  });
+}
+
+function refreshWalletModalUi() {
+  const detected = getAllDetectedWallets();
+  const isIframe = window.self !== window.top;
+
+  const connBox = document.getElementById("walletConnectedBox");
+  const connAddr = document.getElementById("walletConnectedAddr");
+  const connLabel = document.getElementById("walletConnectedLabel");
+  if (connBox) {
+    connBox.classList.toggle("hidden", !walletAddress);
+    if (connAddr && walletAddress) connAddr.innerText = walletAddress;
+    if (connLabel) connLabel.innerText = `Connected (${walletProviderLabel})`;
+  }
+
+  const noticeBox = document.getElementById("walletEnvNotice");
+  const noticeTxt = document.getElementById("walletEnvNoticeText");
+  if (noticeBox) {
+    if (isIframe) {
+      noticeBox.classList.remove("hidden");
+      if (noticeTxt) noticeTxt.innerText = "Browser extensions (MetaMask, Trust Wallet) are blocked inside embedded preview iframes.";
+    } else if (detected.length === 0) {
+      noticeBox.classList.remove("hidden");
+      if (noticeTxt) noticeTxt.innerText = "No browser extension detected in Google Chrome. Tap any wallet app below or WalletConnect to link directly.";
+    } else {
+      noticeBox.classList.add("hidden");
+    }
+  }
+
+  const detBox = document.getElementById("detectedWalletsBox");
+  const detList = document.getElementById("detectedWalletsList");
+  if (detBox && detList) {
+    if (detected.length > 0) {
+      detBox.classList.remove("hidden");
+      detList.innerHTML = detected.map((w, idx) => `
+        <button onclick="connectDetectedIndex(${idx})" class="w-full p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-between text-left">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            <span class="text-xs font-extrabold text-white">${w.name}</span>
+          </div>
+          <span class="text-[11px] font-bold text-emerald-300">Connect Extension &rarr;</span>
+        </button>
+      `).join("");
+    } else {
+      detBox.classList.add("hidden");
+      detList.innerHTML = "";
+    }
+  }
+
+  const subTrust = document.getElementById("subTrust");
+  const subMetaMask = document.getElementById("subMetaMask");
+  const subCoinbase = document.getElementById("subCoinbase");
+  const subBinance = document.getElementById("subBinance");
+  if (subTrust) subTrust.innerText = findProviderForWallet("trust") ? "Trust Wallet Extension detected • Click to connect" : "Tap to open in Trust Wallet DApp Browser";
+  if (subMetaMask) subMetaMask.innerText = findProviderForWallet("metamask") ? "MetaMask Extension detected • Click to connect" : "Tap to open in MetaMask Mobile Browser";
+  if (subCoinbase) subCoinbase.innerText = findProviderForWallet("coinbase") ? "Coinbase Extension detected • Click to connect" : "Tap to open in Coinbase Wallet App";
+  if (subBinance) subBinance.innerText = findProviderForWallet("binance") ? "Binance Extension detected • Click to connect" : "BNB Smart Chain Web3 wallet";
+
+  const wcInput = document.getElementById("wcProjectIdInput");
+  if (wcInput && wcProjectIdCache && !wcInput.value) wcInput.value = wcProjectIdCache;
 }
 
 function connectWeb3Wallet() {
-  updateDeepLinks();
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  refreshWalletModalUi();
   const modal = document.getElementById("walletModal");
   if (modal) {
     modal.classList.remove("hidden");
     modal.classList.add("flex");
   }
+}
+
+function openWalletModal() {
+  connectWeb3Wallet();
 }
 
 function closeWalletModal() {
@@ -273,27 +469,124 @@ function closeWalletModal() {
   }
 }
 
-async function connectInjectedWallet() {
-  const provider = getEvmProvider();
-  if (!provider) {
-    // Open MetaMask App deep link automatically if user taps browser connect on mobile Chrome
-    const mmUrl = `https://link.metamask.io/dapp/${window.location.host}${window.location.pathname}`;
-    window.open(mmUrl, "_blank");
+async function finalizeProviderConnect(provider, label) {
+  const accounts = await provider.request({ method: "eth_requestAccounts" });
+  if (!accounts || !accounts.length) throw new Error("No wallet account returned.");
+  activeProvider = provider;
+  attachProviderEvents(provider);
+  walletAddress = accounts[0];
+  walletMode = "injected";
+  walletProviderLabel = label;
+  localStorage.setItem("tataswap_wallet", walletAddress);
+  localStorage.setItem("tataswap_wallet_mode", walletMode);
+  localStorage.setItem("tataswap_wallet_label", walletProviderLabel);
+  updateWalletHeaderUi();
+  closeWalletModal();
+  await refreshBalance();
+}
+
+async function connectDetectedIndex(idx) {
+  const detected = getAllDetectedWallets();
+  const item = detected[idx];
+  if (!item) return;
+  try {
+    await finalizeProviderConnect(item.provider, item.name);
+  } catch (err) {
+    alert(item.name + " connection error: " + err.message);
+  }
+}
+
+async function connectWalletByType(type) {
+  const provider = findProviderForWallet(type);
+  const labelMap = {
+    trust: "Trust Wallet",
+    metamask: "MetaMask",
+    coinbase: "Coinbase Wallet",
+    binance: "Binance Wallet",
+    okx: "OKX Wallet",
+    bitget: "Bitget Wallet",
+    safepal: "SafePal Wallet",
+    rainbow: "Rainbow Wallet"
+  };
+  if (provider) {
+    try {
+      await finalizeProviderConnect(provider, labelMap[type] || "Web3 Wallet");
+      return;
+    } catch (err) {
+      alert((labelMap[type] || "Wallet") + " error: " + err.message);
+      return;
+    }
+  }
+  const deepUrl = getWalletDeepLink(type);
+  window.open(deepUrl, "_blank", "noopener");
+}
+
+async function connectWalletConnect() {
+  const projectId = (wcProjectIdCache || localStorage.getItem("tataswap_wc_project_id") || "").trim();
+  if (!projectId) {
+    const panel = document.getElementById("wcExtraPanel");
+    if (panel) panel.classList.toggle("hidden");
     return;
   }
-
   try {
-    const accounts = await provider.request({ method: "eth_requestAccounts" });
-    walletAddress = accounts[0];
-    walletMode = "injected";
-    localStorage.setItem("tataswap_wallet", walletAddress);
-    localStorage.setItem("tataswap_wallet_mode", walletMode);
-    updateWalletHeaderUi();
-    closeWalletModal();
-    await refreshBalance();
+    const subWc = document.getElementById("subWc");
+    if (subWc) subWc.innerText = "Loading WalletConnect v2 modal...";
+    const { EthereumProvider } = await import("https://esm.sh/@walletconnect/ethereum-provider@2.17.0");
+    const net = NETWORKS[activeNetKey];
+    const wcProvider = await EthereumProvider.init({
+      projectId,
+      chains: [net.chainId],
+      optionalChains: [810161, 1, 56, 137, 1116],
+      showQrModal: true,
+      metadata: {
+        name: "TataSwap DEX",
+        description: "Multi-Chain Non-Custodial EVM DEX",
+        url: window.location.origin,
+        icons: ["https://tataswap.onrender.com/favicon.ico"]
+      }
+    });
+    await wcProvider.connect();
+    await finalizeProviderConnect(wcProvider, "WalletConnect");
   } catch (err) {
-    alert("Wallet connection error: " + err.message);
+    const panel = document.getElementById("wcExtraPanel");
+    if (panel) panel.classList.remove("hidden");
+    alert("WalletConnect note: " + (err?.message || "Could not open WalletConnect session. Choose any mobile wallet below."));
   }
+}
+
+async function saveAndLaunchWalletConnect() {
+  const raw = (document.getElementById("wcProjectIdInput")?.value || "").trim();
+  if (!raw || raw.length < 16) {
+    return alert("Enter a valid Reown / WalletConnect Project ID (from cloud.reown.com).");
+  }
+  wcProjectIdCache = raw;
+  localStorage.setItem("tataswap_wc_project_id", raw);
+  await connectWalletConnect();
+}
+
+function disconnectWallet() {
+  if (activeProvider?.disconnect) {
+    try { activeProvider.disconnect(); } catch {}
+  }
+  activeProvider = null;
+  walletAddress = null;
+  walletMode = "none";
+  walletProviderLabel = "Web3 Wallet";
+  nativeBalanceVal = 0;
+  localStorage.removeItem("tataswap_wallet");
+  localStorage.removeItem("tataswap_wallet_mode");
+  localStorage.removeItem("tataswap_wallet_label");
+  updateWalletHeaderUi();
+  refreshWalletModalUi();
+  renderPortfolioHoldings();
+}
+
+async function connectInjectedWallet() {
+  const detected = getAllDetectedWallets();
+  if (detected.length > 0) {
+    return connectDetectedIndex(0);
+  }
+  connectWeb3Wallet();
 }
 
 async function connectManualAddress() {
@@ -662,6 +955,440 @@ async function submitSwap() {
   }
 }
 
+const cpState = {
+  step: 1,
+  tokenA: null,
+  tokenB: null,
+  pickerSlot: "A",
+  hookAddress: "",
+  feeTier: 0.25,
+  feeExpanded: true,
+  priceBase: "A", // "A" => Quote B per 1 A; "B" => Quote A per 1 B
+  isFullRange: true
+};
+
+function getDeployedPools() {
+  try {
+    return JSON.parse(localStorage.getItem("tataswap_deployed_pools") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveDeployedPool(entry) {
+  const list = getDeployedPools();
+  list.unshift(entry);
+  localStorage.setItem("tataswap_deployed_pools", JSON.stringify(list.slice(0, 50)));
+}
+
+function getCpTokenBalance(sym) {
+  if (!sym) return 0;
+  const net = NETWORKS[activeNetKey];
+  if (sym === net?.symbol) return Number(nativeBalanceVal || 0);
+  const found = TOKENS.find(t => t.symbol === sym);
+  return Number(found?.balance || 0);
+}
+
+function renderCreatePoolUi() {
+  const tokA = TOKENS.find(t => t.symbol === cpState.tokenA);
+  const tokB = TOKENS.find(t => t.symbol === cpState.tokenB);
+
+  const iconA = document.getElementById("cpTokenAIcon");
+  const lblA = document.getElementById("cpTokenALabel");
+  if (iconA && lblA) {
+    if (tokA) {
+      iconA.innerText = tokA.symbol.slice(0, 2);
+      lblA.innerText = `${tokA.symbol} • ${tokA.name}`;
+    } else {
+      iconA.innerText = "?";
+      lblA.innerText = "Choose token";
+    }
+  }
+
+  const btnB = document.getElementById("cpTokenBBtn");
+  const iconB = document.getElementById("cpTokenBIcon");
+  const lblB = document.getElementById("cpTokenBLabel");
+  if (btnB && iconB && lblB) {
+    if (tokB) {
+      btnB.className = "w-full p-3.5 rounded-2xl bg-[#0d111a] border border-emerald-500 flex items-center justify-between text-left transition";
+      iconB.classList.remove("hidden");
+      iconB.innerText = tokB.symbol.slice(0, 2);
+      lblB.className = "text-sm font-bold text-white";
+      lblB.innerText = `${tokB.symbol} • ${tokB.name}`;
+    } else {
+      btnB.className = "w-full p-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-between text-left transition";
+      iconB.classList.add("hidden");
+      lblB.className = "text-sm font-extrabold";
+      lblB.innerText = "Choose token";
+    }
+  }
+
+  const hookBadge = document.getElementById("cpHookBadge");
+  const hookSub = document.getElementById("cpHookSubtitle");
+  const hookCard = document.getElementById("cpHookCard");
+  if (hookBadge && hookSub && hookCard) {
+    const hasHook = Boolean(cpState.hookAddress);
+    hookBadge.classList.toggle("hidden", !hasHook);
+    hookSub.innerText = hasHook ? cpState.hookAddress : "Hooks allow for advanced position customization.";
+    hookSub.className = hasHook ? "text-xs text-emerald-400 font-mono truncate" : "text-xs text-gray-400 truncate";
+    hookCard.className = hasHook
+      ? "rounded-2xl bg-[#0b0f17] border border-emerald-500 p-4 space-y-3"
+      : "rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 space-y-3";
+  }
+
+  const feeSum = document.getElementById("cpFeeSummary");
+  if (feeSum) feeSum.innerText = `${cpState.feeTier}% fee tier`;
+
+  const deployed = getDeployedPools();
+  document.querySelectorAll(".cp-fee-card").forEach(card => {
+    const feeVal = parseFloat(card.dataset.fee);
+    const selected = Math.abs(cpState.feeTier - feeVal) < 0.0001;
+    const chk = card.querySelector(".cp-fee-check");
+    const statusEl = card.querySelector(".cp-fee-status");
+    const exists = Boolean(
+      tokA && tokB && deployed.some(p =>
+        p.networkKey === activeNetKey &&
+        ((p.symA === tokA.symbol && p.symB === tokB.symbol) || (p.symA === tokB.symbol && p.symB === tokA.symbol)) &&
+        Math.abs(Number(p.feeTier) - feeVal) < 0.0001
+      )
+    );
+    card.className = selected
+      ? "cp-fee-card text-left p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500 space-y-1.5 transition"
+      : "cp-fee-card text-left p-3.5 rounded-2xl bg-[#0b0f17] border border-gray-800 hover:border-gray-600 space-y-1.5 transition";
+    if (chk) {
+      chk.classList.toggle("hidden", !selected);
+      chk.classList.toggle("flex", selected);
+    }
+    if (statusEl) {
+      statusEl.innerText = exists ? "Created" : "Not created";
+      statusEl.className = exists ? "cp-fee-status text-[11px] text-emerald-400 pt-1 font-bold" : "cp-fee-status text-[11px] text-gray-500 pt-1";
+    }
+  });
+
+  const contBtn = document.getElementById("cpContinueBtn");
+  if (contBtn) {
+    const valid = Boolean(tokA && tokB && tokA.symbol !== tokB.symbol);
+    contBtn.disabled = !valid;
+    contBtn.className = valid
+      ? "w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm transition"
+      : "w-full py-3.5 rounded-2xl bg-[#141b29] text-gray-500 font-extrabold text-sm cursor-not-allowed";
+  }
+
+  updateCreatePoolActionUi();
+}
+
+function openCpTokenPicker(slot) {
+  cpState.pickerSlot = slot;
+  const search = document.getElementById("cpTokenSearchInput");
+  if (search) search.value = "";
+  renderCpTokenPickerList();
+  document.getElementById("cpTokenPickerModal")?.classList.remove("hidden");
+}
+
+function closeCpTokenPicker() {
+  document.getElementById("cpTokenPickerModal")?.classList.add("hidden");
+}
+
+function renderCpTokenPickerList() {
+  const listEl = document.getElementById("cpTokenPickerList");
+  if (!listEl) return;
+  const q = (document.getElementById("cpTokenSearchInput")?.value || "").trim().toLowerCase();
+  const filtered = TOKENS.filter(t =>
+    t.symbol.toLowerCase().includes(q) ||
+    t.name.toLowerCase().includes(q) ||
+    t.address.toLowerCase().includes(q)
+  );
+  listEl.innerHTML = filtered.map(t => `
+    <button onclick="selectCpToken('${t.symbol}')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 flex items-center justify-between text-left">
+      <div class="flex items-center gap-3">
+        <span class="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-extrabold flex items-center justify-center">${t.symbol.slice(0, 2)}</span>
+        <div>
+          <div class="text-xs font-extrabold text-white">${t.symbol}</div>
+          <div class="text-[11px] text-gray-400">${t.name}</div>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="text-xs font-bold text-gray-300">$${formatUsd(PRICES[t.symbol] ?? t.price)}</div>
+        <div class="text-[10px] text-gray-500 font-mono">${t.address.slice(0, 6)}...${t.address.slice(-4)}</div>
+      </div>
+    </button>
+  `).join("") || `<div class="text-xs text-gray-500 text-center py-4">No tokens matched. List a custom token first.</div>`;
+}
+
+function selectCpToken(symbol) {
+  if (cpState.pickerSlot === "A") {
+    if (cpState.tokenB === symbol) cpState.tokenB = cpState.tokenA;
+    cpState.tokenA = symbol;
+  } else {
+    if (cpState.tokenA === symbol) cpState.tokenA = cpState.tokenB;
+    cpState.tokenB = symbol;
+  }
+  closeCpTokenPicker();
+  renderCreatePoolUi();
+}
+
+function toggleCpHookPanel() {
+  document.getElementById("cpHookPanel")?.classList.toggle("hidden");
+}
+
+function selectHookPreset(addr) {
+  const input = document.getElementById("cpHookInput");
+  if (input) input.value = addr;
+  cpState.hookAddress = addr;
+  document.getElementById("cpHookPanel")?.classList.add("hidden");
+  renderCreatePoolUi();
+}
+
+function applyCpHook() {
+  const val = (document.getElementById("cpHookInput")?.value || "").trim();
+  cpState.hookAddress = val;
+  document.getElementById("cpHookPanel")?.classList.add("hidden");
+  renderCreatePoolUi();
+}
+
+function clearCpHook() {
+  const input = document.getElementById("cpHookInput");
+  if (input) input.value = "";
+  cpState.hookAddress = "";
+  document.getElementById("cpHookPanel")?.classList.add("hidden");
+  renderCreatePoolUi();
+}
+
+function toggleCpFeeGrid() {
+  cpState.feeExpanded = !cpState.feeExpanded;
+  document.getElementById("cpFeeGridWrap")?.classList.toggle("hidden", !cpState.feeExpanded);
+  const btn = document.getElementById("cpFeeCollapseBtn");
+  if (btn) btn.innerHTML = cpState.feeExpanded ? "Less &#9652;" : "More &#9662;";
+}
+
+function selectCpFeeTier(tier) {
+  cpState.feeTier = Number(tier);
+  renderCreatePoolUi();
+}
+
+function toggleCpCustomFee() {
+  document.getElementById("cpCustomFeePanel")?.classList.toggle("hidden");
+}
+
+function applyCpCustomFee() {
+  const val = parseFloat(document.getElementById("cpCustomFeeInput")?.value || "");
+  if (!val || val <= 0 || val > 10) return alert("Enter a valid fee tier between 0.0001% and 10%.");
+  cpState.feeTier = val;
+  document.getElementById("cpCustomFeePanel")?.classList.add("hidden");
+  renderCreatePoolUi();
+}
+
+function goToCreatePoolStep2() {
+  if (!cpState.tokenA || !cpState.tokenB || cpState.tokenA === cpState.tokenB) {
+    return alert("Please select two distinct tokens first.");
+  }
+  cpState.step = 2;
+  document.getElementById("cpStep1")?.classList.add("hidden");
+  document.getElementById("cpStep2")?.classList.remove("hidden");
+  document.getElementById("cpStepCircle").innerText = "2";
+  document.getElementById("cpStepCounter").innerText = "Step 2 of 2";
+  document.getElementById("cpStepTitle").innerText = "Set initial price and deposit";
+
+  const tokA = TOKENS.find(t => t.symbol === cpState.tokenA);
+  const tokB = TOKENS.find(t => t.symbol === cpState.tokenB);
+  const pA = PRICES[cpState.tokenA] ?? tokA?.price ?? 0;
+  const pB = PRICES[cpState.tokenB] ?? tokB?.price ?? 0;
+  const initInput = document.getElementById("cpInitialPriceInput");
+  if (initInput && (!initInput.value || Number(initInput.value) === 0) && pA > 0 && pB > 0) {
+    const rate = cpState.priceBase === "A" ? pA / pB : pB / pA;
+    initInput.value = rate.toFixed(4);
+  }
+  updateCpStep2Labels();
+}
+
+function goToCreatePoolStep1() {
+  cpState.step = 1;
+  document.getElementById("cpStep2")?.classList.add("hidden");
+  document.getElementById("cpStep1")?.classList.remove("hidden");
+  document.getElementById("cpStepCircle").innerText = "1";
+  document.getElementById("cpStepCounter").innerText = "Step 1 of 2";
+  document.getElementById("cpStepTitle").innerText = "Select token pair and fees";
+}
+
+function updateCpStep2Labels() {
+  const symA = cpState.tokenA || "POL";
+  const symB = cpState.tokenB || "TATA";
+  const baseSym = cpState.priceBase === "A" ? symA : symB;
+  const quoteSym = cpState.priceBase === "A" ? symB : symA;
+
+  const sumPair = document.getElementById("cpSummaryPair");
+  const sumFee = document.getElementById("cpSummaryFee");
+  const sumHook = document.getElementById("cpSummaryHook");
+  if (sumPair) sumPair.innerText = `${symA} / ${symB}`;
+  if (sumFee) sumFee.innerText = `${cpState.feeTier}%`;
+  if (sumHook) sumHook.classList.toggle("hidden", !cpState.hookAddress);
+
+  const btnA = document.getElementById("cpBaseBtnA");
+  const btnB = document.getElementById("cpBaseBtnB");
+  if (btnA && btnB) {
+    btnA.innerText = symA;
+    btnB.innerText = symB;
+    btnA.className = cpState.priceBase === "A"
+      ? "px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-extrabold"
+      : "px-3 py-1 rounded-full text-gray-400 text-xs font-bold";
+    btnB.className = cpState.priceBase === "B"
+      ? "px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-extrabold"
+      : "px-3 py-1 rounded-full text-gray-400 text-xs font-bold";
+  }
+
+  const cap = document.getElementById("cpInitialPriceCaption");
+  if (cap) cap.innerText = `${quoteSym} = 1 ${baseSym}`;
+  const minUnit = document.getElementById("cpMinUnitLabel");
+  const maxUnit = document.getElementById("cpMaxUnitLabel");
+  if (minUnit) minUnit.innerText = `${quoteSym} per ${baseSym}`;
+  if (maxUnit) maxUnit.innerText = `${quoteSym} per ${baseSym}`;
+
+  const pA = PRICES[symA] || 0;
+  const pB = PRICES[symB] || 0;
+  const useMktBtn = document.getElementById("cpUseMarketBtn");
+  const warnText = document.getElementById("cpMarketWarningText");
+  if (pA > 0 && pB > 0) {
+    const liveRate = cpState.priceBase === "A" ? pA / pB : pB / pA;
+    if (useMktBtn) useMktBtn.classList.remove("hidden");
+    if (warnText) warnText.innerText = `Live market reference: 1 ${baseSym} ≈ ${liveRate.toFixed(4)} ${quoteSym}. Please do your own research before creating a pool.`;
+  } else {
+    if (useMktBtn) useMktBtn.classList.add("hidden");
+    if (warnText) warnText.innerText = "Market price not found. Please do your own research to avoid loss of funds.";
+  }
+
+  document.getElementById("cpDepositIconA").innerText = symA.slice(0, 2);
+  document.getElementById("cpDepositSymA").innerText = symA;
+  document.getElementById("cpDepositIconB").innerText = symB.slice(0, 2);
+  document.getElementById("cpDepositSymB").innerText = symB;
+  document.getElementById("cpBalA").innerText = `${getCpTokenBalance(symA).toFixed(4)} ${symA}`;
+  document.getElementById("cpBalB").innerText = `${getCpTokenBalance(symB).toFixed(4)} ${symB}`;
+  updateCreatePoolActionUi();
+}
+
+function setCpPriceBase(slot) {
+  cpState.priceBase = slot;
+  updateCpStep2Labels();
+}
+
+function applyCpMarketRate() {
+  const symA = cpState.tokenA || "POL";
+  const symB = cpState.tokenB || "TATA";
+  const pA = PRICES[symA] || 0;
+  const pB = PRICES[symB] || 0;
+  if (pA > 0 && pB > 0) {
+    const liveRate = cpState.priceBase === "A" ? pA / pB : pB / pA;
+    document.getElementById("cpInitialPriceInput").value = liveRate.toFixed(4);
+    onCpAmountAChange();
+  }
+}
+
+function onCpInitialPriceChange() {
+  onCpAmountAChange();
+}
+
+function setCpPriceRangeMode(isFull) {
+  cpState.isFullRange = isFull;
+  const fullBtn = document.getElementById("cpRangeFullBtn");
+  const customBtn = document.getElementById("cpRangeCustomBtn");
+  const grid = document.getElementById("cpCustomRangeGrid");
+  const desc = document.getElementById("cpRangeDesc");
+
+  if (fullBtn && customBtn) {
+    fullBtn.className = isFull ? "py-2 rounded-full bg-[#141b29] text-white text-xs font-bold transition" : "py-2 rounded-full text-gray-400 text-xs font-bold transition";
+    customBtn.className = !isFull ? "py-2 rounded-full bg-[#141b29] text-white text-xs font-bold transition" : "py-2 rounded-full text-gray-400 text-xs font-bold transition";
+  }
+  if (grid) grid.classList.toggle("hidden", isFull);
+  if (desc) {
+    desc.innerText = isFull
+      ? "Setting full range liquidity when creating a pool ensures continuous market participation across all possible prices, offering simplicity but with potential for higher impermanent loss."
+      : "Custom range concentrates liquidity between your chosen Min and Max prices for higher capital efficiency.";
+  }
+}
+
+function stepCpBound(which, dir) {
+  const baseRate = parseFloat(document.getElementById("cpInitialPriceInput")?.value) || 1;
+  if (which === "min") {
+    const el = document.getElementById("cpMinPriceInput");
+    const cur = parseFloat(el.value) || 0;
+    const next = dir > 0 ? (cur <= 0 ? baseRate * 0.5 : cur * 1.1) : Math.max(0, cur * 0.9);
+    el.value = next.toFixed(4);
+  } else {
+    const el = document.getElementById("cpMaxPriceInput");
+    const cur = parseFloat(el.value);
+    const seed = isNaN(cur) ? baseRate * 1.5 : cur;
+    const next = dir > 0 ? seed * 1.1 : Math.max(0.0001, seed * 0.9);
+    el.value = next.toFixed(4);
+  }
+}
+
+function onCpAmountAChange() {
+  const amtA = parseFloat(document.getElementById("cpAmtAInput")?.value || "0");
+  const rate = parseFloat(document.getElementById("cpInitialPriceInput")?.value || "0");
+  if (amtA > 0 && rate > 0) {
+    const amtB = cpState.priceBase === "A" ? amtA * rate : amtA / rate;
+    const elB = document.getElementById("cpAmtBInput");
+    if (elB) elB.value = amtB.toFixed(4);
+  }
+}
+
+function setCpDepositPct(slot, pct) {
+  const sym = slot === "A" ? cpState.tokenA : cpState.tokenB;
+  const bal = getCpTokenBalance(sym);
+  const val = (bal * pct) / 100;
+  if (slot === "A") {
+    document.getElementById("cpAmtAInput").value = val > 0 ? val.toFixed(4) : "0";
+    onCpAmountAChange();
+  } else {
+    document.getElementById("cpAmtBInput").value = val > 0 ? val.toFixed(4) : "0";
+  }
+}
+
+function updateCreatePoolActionUi() {
+  const btn = document.getElementById("cpSubmitBtn");
+  if (!btn) return;
+  if (walletAddress) {
+    btn.innerText = "Create Pool & Deposit";
+  } else {
+    btn.innerText = "Connect Wallet";
+  }
+}
+
+function handleCpPrimaryAction() {
+  if (!walletAddress) return openWalletModal();
+  submitCreatePool();
+}
+
+function renderOnChainPools() {
+  const net = NETWORKS[activeNetKey];
+  const sub = document.getElementById("cpPoolsNetSubtitle");
+  if (sub && net) sub.innerText = `Real reserves synced from ${net.name}`;
+  const listEl = document.getElementById("cpOnChainPoolsList");
+  if (!listEl) return;
+
+  const netPools = getDeployedPools().filter(p => p.networkKey === activeNetKey);
+  if (netPools.length === 0) {
+    listEl.className = "text-xs text-gray-400 text-center py-4 leading-relaxed";
+    listEl.innerText = "No pools deployed on this network yet. No simulated liquidity is displayed—create the first trading pair to seed real reserves.";
+    return;
+  }
+
+  listEl.className = "space-y-2.5";
+  listEl.innerHTML = netPools.map(p => `
+    <div class="p-3.5 rounded-xl bg-[#0d111a] border border-gray-800 flex items-center justify-between gap-2">
+      <div>
+        <div class="text-sm font-extrabold text-white">${p.symA} / ${p.symB} <span class="ml-1 px-1.5 py-0.5 rounded bg-[#141b29] text-[10px] text-gray-300">${p.feeTier}%</span>${p.hookAddress ? ' <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px] text-emerald-400">Hooked</span>' : ""}</div>
+        <div class="text-[11px] text-gray-400">${p.isFullRange ? "Full range" : `Range ${p.minPrice || "0"} – ${p.maxPrice || "∞"}`} • Deposit: ${p.amountA} ${p.symA} + ${p.amountB} ${p.symB}</div>
+      </div>
+      <a href="${p.explorerUrl || "#"}" target="_blank" rel="noopener" class="text-xs font-mono text-emerald-400 hover:underline shrink-0">${(p.txHash || "").slice(0, 8)}... &nearr;</a>
+    </div>
+  `).join("");
+}
+
+function refreshOnChainPools() {
+  renderOnChainPools();
+  renderCreatePoolUi();
+}
+
 async function submitCreatePool() {
   const notice = document.getElementById("createPoolNotice");
   if (!walletAddress) return openWalletModal();
@@ -681,13 +1408,15 @@ async function submitCreatePool() {
     }
     return;
   }
-  const symA = document.getElementById("poolTokenA")?.value || "TATA";
-  const symB = document.getElementById("poolTokenB")?.value || "USDT";
+  const symA = cpState.tokenA || "TATA";
+  const symB = cpState.tokenB || "USDT";
   const tokA = TOKENS.find((t) => t.symbol === symA);
   const tokB = TOKENS.find((t) => t.symbol === symB);
   if (!tokA || !tokB || !/^0x[a-fA-F0-9]{40}$/.test(tokA.address) || !/^0x[a-fA-F0-9]{40}$/.test(tokB.address)) {
     return alert("Select two valid EVM tokens to create a pool.");
   }
+  const amountA = document.getElementById("cpAmtAInput")?.value || "0";
+  const amountB = document.getElementById("cpAmtBInput")?.value || "0";
   try {
     const net = NETWORKS[activeNetKey];
     await ensureEvmChain(provider, net);
@@ -701,7 +1430,28 @@ async function submitCreatePool() {
       notice.innerHTML = `<span class="text-emerald-400 font-bold">Pool Tx Broadcasted! <a href="${expUrl}" target="_blank" class="underline">${txHash.slice(0, 12)}...</a></span>`;
       notice.classList.remove("hidden");
     }
-    saveLocalTx({ title: `Create Pool ${symA}/${symB}`, subtitle: `${net.name} Mainnet`, txHash, explorerUrl: expUrl });
+    saveDeployedPool({
+      networkKey: activeNetKey,
+      symA,
+      symB,
+      feeTier: cpState.feeTier,
+      hookAddress: cpState.hookAddress || null,
+      isFullRange: cpState.isFullRange,
+      minPrice: document.getElementById("cpMinPriceInput")?.value || "0.0",
+      maxPrice: document.getElementById("cpMaxPriceInput")?.value || "∞",
+      amountA,
+      amountB,
+      txHash,
+      explorerUrl: expUrl
+    });
+    renderOnChainPools();
+    renderCreatePoolUi();
+    saveLocalTx({
+      title: `Create Pool ${symA}/${symB} (${cpState.feeTier}%)`,
+      subtitle: `${net.name} Mainnet${cpState.hookAddress ? " • Hooked" : ""}`,
+      txHash,
+      explorerUrl: expUrl
+    });
   } catch (err) {
     if (notice) {
       notice.innerText = "Create pool failed: " + err.message;
@@ -958,6 +1708,8 @@ window.addEventListener("load", () => {
   if (hash && document.getElementById("page-" + hash)) openPage(hash);
   updateWalletHeaderUi();
   renderLivePriceCards();
+  renderCreatePoolUi();
+  renderOnChainPools();
   refreshBlock();
   recalcSwap();
   renderTokensTable();

@@ -122,7 +122,7 @@ app.get('/', (req, res) => {
     status: 'ok',
     protocol: 'TataSwap DEX Backend API',
     officialFeeReceiver: OFFICIAL_FEE_RECEIVER,
-    endpoints: ['/health', '/api/stats', '/api/tokens', '/api/listings', '/api/rpc/inspect/:address'],
+    endpoints: ['/health', '/api/config', '/api/prices', '/api/stats', '/api/tokens', '/api/listings', '/api/rpc/inspect/:address'],
   });
 });
 
@@ -167,6 +167,16 @@ app.get('/health', async (req, res) => {
   );
 
   res.json(status);
+});
+
+// 1b. Public Web DEX Runtime Config (WalletConnect Project ID & Protocol Constants)
+app.get('/api/config', (req, res) => {
+  res.json({
+    walletConnectProjectId: (process.env.WALLETCONNECT_PROJECT_ID || '').trim(),
+    officialFeeReceiver: OFFICIAL_FEE_RECEIVER,
+    officialOwnerWallet: OFFICIAL_OWNER_WALLET,
+    listingFeeUsdt: LISTING_FEE_USDT,
+  });
 });
 
 // 2. Live On-Chain Token Contract Inspection via Mainnet RPCs

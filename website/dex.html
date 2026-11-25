@@ -199,21 +199,284 @@
       </div>
     </section>
 
-    <!-- 6. CREATE LIQUIDITY POOL -->
-    <section id="page-create-pool" class="dex-page hidden max-w-lg mx-auto">
-      <div class="card-dark rounded-2xl p-6 space-y-4">
-        <h2 class="text-xl font-bold">Create Liquidity Pool</h2>
-        <div class="grid grid-cols-2 gap-3">
-          <select id="poolTokenA" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-white"><option>TATA</option><option>BNB</option><option>ETH</option><option>POL</option><option>CORE</option></select>
-          <select id="poolTokenB" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-white"><option>USDT</option><option>BNB</option><option>ETH</option><option>TATA</option></select>
+    <!-- 6. CREATE LIQUIDITY POOL (2-STEP FLOW) -->
+    <section id="page-create-pool" class="dex-page hidden max-w-xl mx-auto space-y-4">
+      <div class="text-xs text-gray-400">Your positions &nbsp;&rsaquo;&nbsp; <span class="text-gray-200 font-semibold">Create Pool</span></div>
+      <div class="flex items-center gap-3">
+        <button onclick="openPage('portfolio')" aria-label="Back" class="w-10 h-10 rounded-xl bg-[#131823] border border-gray-800 hover:border-gray-600 flex items-center justify-center text-white font-bold">&larr;</button>
+        <h2 class="text-2xl font-extrabold text-white">Create Pool</h2>
+      </div>
+
+      <div class="card-dark rounded-2xl p-5 sm:p-6 space-y-5 border border-gray-800">
+        <!-- Step Indicator -->
+        <div class="flex items-center gap-3 pb-3 border-b border-gray-800">
+          <div id="cpStepCircle" class="w-9 h-9 rounded-full bg-emerald-500 text-black font-black flex items-center justify-center text-sm shrink-0">1</div>
+          <div>
+            <div id="cpStepCounter" class="text-xs text-gray-400">Step 1 of 2</div>
+            <div id="cpStepTitle" class="text-base font-extrabold text-white">Select token pair and fees</div>
+          </div>
         </div>
-        <select class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-white">
-          <option>0.05% (Stable Pair)</option>
-          <option selected>0.30% (Standard Pair)</option>
-          <option>1.00% (Exotic Pair)</option>
-        </select>
-        <div id="createPoolNotice" class="hidden text-xs p-3 rounded-xl bg-black/40 border border-gray-800"></div>
-        <button onclick="submitCreatePool()" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Create Pool on Mainnet</button>
+
+        <!-- STEP 1 -->
+        <div id="cpStep1" class="space-y-5">
+          <div class="space-y-2.5">
+            <h3 class="text-base font-bold text-white">Select pair</h3>
+            <p class="text-xs text-gray-400">Choose the tokens you want to provide liquidity for. You can select tokens on all supported networks.</p>
+
+            <button id="cpTokenABtn" onclick="openCpTokenPicker('A')" class="w-full p-3.5 rounded-2xl bg-[#0d111a] border border-gray-800 hover:border-gray-600 flex items-center justify-between text-left transition">
+              <div class="flex items-center gap-3">
+                <span id="cpTokenAIcon" class="w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-extrabold flex items-center justify-center">?</span>
+                <span id="cpTokenALabel" class="text-sm font-bold text-white">Choose token</span>
+              </div>
+              <span class="text-gray-400 text-sm">&#9662;</span>
+            </button>
+
+            <button id="cpTokenBBtn" onclick="openCpTokenPicker('B')" class="w-full p-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-between text-left transition">
+              <div class="flex items-center gap-3">
+                <span id="cpTokenBIcon" class="hidden w-8 h-8 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-extrabold flex items-center justify-center">?</span>
+                <span id="cpTokenBLabel" class="text-sm font-extrabold">Choose token</span>
+              </div>
+              <span id="cpTokenBArrow" class="text-sm font-bold">&#9662;</span>
+            </button>
+
+            <!-- Optional Hook Card -->
+            <div id="cpHookCard" class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-white">Add a hook</span>
+                    <span class="text-xs text-gray-400">(optional)</span>
+                    <span id="cpHookBadge" class="hidden px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Hooked</span>
+                  </div>
+                  <div id="cpHookSubtitle" class="text-xs text-gray-400 truncate">Hooks allow for advanced position customization.</div>
+                </div>
+                <button onclick="toggleCpHookPanel()" class="px-3 py-2 rounded-xl bg-[#141b29] hover:bg-[#1c2538] border border-gray-700 text-xs font-bold text-white shrink-0">🔍 Search</button>
+              </div>
+              <div id="cpHookPanel" class="hidden space-y-2 pt-2 border-t border-gray-800">
+                <input id="cpHookInput" placeholder="Enter 0x Hook Contract Address" class="w-full bg-[#131823] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
+                <div class="grid grid-cols-1 gap-1.5">
+                  <button onclick="selectHookPreset('0x000000000000000000000000000000000000H001')" class="text-left p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs">
+                    <div class="font-bold text-white">Dynamic Volatility Fee Hook</div>
+                    <div class="text-[11px] text-gray-400">Adjusts swap fee dynamically during volatility</div>
+                  </button>
+                  <button onclick="selectHookPreset('0x000000000000000000000000000000000000H002')" class="text-left p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs">
+                    <div class="font-bold text-white">TWAMM Streaming Order Hook</div>
+                    <div class="text-[11px] text-gray-400">Time-weighted long-duration order execution</div>
+                  </button>
+                </div>
+                <div class="flex justify-between gap-2">
+                  <button onclick="clearCpHook()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 hover:bg-red-500/10">Clear</button>
+                  <button onclick="applyCpHook()" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-black text-xs font-bold">Apply Hook</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fee Tier Section -->
+          <div class="space-y-3">
+            <h3 class="text-base font-bold text-white">Fee tier</h3>
+            <p class="text-xs text-gray-400">The amount earned providing liquidity. Choose an amount that suits your risk tolerance and strategy.</p>
+
+            <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 flex items-center justify-between">
+              <div>
+                <div id="cpFeeSummary" class="text-sm font-bold text-white">0.25% fee tier</div>
+                <div class="text-xs text-gray-400">The % you will earn in fees</div>
+              </div>
+              <button id="cpFeeCollapseBtn" onclick="toggleCpFeeGrid()" class="px-3 py-1.5 rounded-xl bg-[#141b29] border border-gray-700 text-xs font-bold text-white">Less &#9652;</button>
+            </div>
+
+            <div id="cpFeeGridWrap" class="space-y-3">
+              <div id="cpFeeGrid" class="grid grid-cols-2 gap-2.5">
+                <button onclick="selectCpFeeTier(0.0075)" data-fee="0.0075" class="cp-fee-card text-left p-3.5 rounded-2xl bg-[#0b0f17] border border-gray-800 hover:border-gray-600 space-y-1.5 transition">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-extrabold text-white">0.0075%</span>
+                    <span class="cp-fee-check hidden w-5 h-5 rounded-full bg-emerald-500 text-black text-[11px] font-black items-center justify-center">&#10003;</span>
+                  </div>
+                  <div class="text-[11px] text-gray-400 leading-snug">Commonly used for very stable pairs.</div>
+                  <div class="cp-fee-status text-[11px] text-gray-500 pt-1">Not created</div>
+                </button>
+                <button onclick="selectCpFeeTier(0.0375)" data-fee="0.0375" class="cp-fee-card text-left p-3.5 rounded-2xl bg-[#0b0f17] border border-gray-800 hover:border-gray-600 space-y-1.5 transition">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-extrabold text-white">0.0375%</span>
+                    <span class="cp-fee-check hidden w-5 h-5 rounded-full bg-emerald-500 text-black text-[11px] font-black items-center justify-center">&#10003;</span>
+                  </div>
+                  <div class="text-[11px] text-gray-400 leading-snug">Commonly used for stable pairs.</div>
+                  <div class="cp-fee-status text-[11px] text-gray-500 pt-1">Not created</div>
+                </button>
+                <button onclick="selectCpFeeTier(0.25)" data-fee="0.25" class="cp-fee-card text-left p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500 space-y-1.5 transition">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-extrabold text-white">0.25%</span>
+                    <span class="cp-fee-check flex w-5 h-5 rounded-full bg-emerald-500 text-black text-[11px] font-black items-center justify-center">&#10003;</span>
+                  </div>
+                  <div class="text-[11px] text-gray-400 leading-snug">Commonly used for most pairs.</div>
+                  <div class="cp-fee-status text-[11px] text-gray-500 pt-1">Not created</div>
+                </button>
+                <button onclick="selectCpFeeTier(0.9)" data-fee="0.9" class="cp-fee-card text-left p-3.5 rounded-2xl bg-[#0b0f17] border border-gray-800 hover:border-gray-600 space-y-1.5 transition">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm font-extrabold text-white">0.9%</span>
+                    <span class="cp-fee-check hidden w-5 h-5 rounded-full bg-emerald-500 text-black text-[11px] font-black items-center justify-center">&#10003;</span>
+                  </div>
+                  <div class="text-[11px] text-gray-400 leading-snug">Commonly used for exotic pairs.</div>
+                  <div class="cp-fee-status text-[11px] text-gray-500 pt-1">Not created</div>
+                </button>
+              </div>
+
+              <button onclick="toggleCpCustomFee()" class="flex items-center gap-2 text-xs text-gray-300 hover:text-white font-semibold py-1">
+                <span>🔍</span>
+                <span>Search or create other fee tiers <span class="text-gray-500">(Advanced)</span></span>
+              </button>
+              <div id="cpCustomFeePanel" class="hidden flex gap-2">
+                <input id="cpCustomFeeInput" type="number" step="0.0001" min="0.0001" max="10" placeholder="Custom fee % (e.g. 0.05, 0.3, 1.0)" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs text-white" />
+                <button onclick="applyCpCustomFee()" class="px-4 py-2 rounded-xl bg-emerald-500 text-black text-xs font-extrabold">Apply</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info Box -->
+          <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 flex items-start gap-3">
+            <span class="text-gray-400 text-sm mt-0.5">&#9432;</span>
+            <div class="space-y-1">
+              <div class="text-xs font-bold text-white">Creating new pool</div>
+              <div class="text-xs text-gray-400 leading-relaxed">Your selections will create a new liquidity pool which may result in lower initial liquidity and increased volatility. Consider adding to an existing pool to minimize these risks.</div>
+            </div>
+          </div>
+
+          <button id="cpContinueBtn" onclick="goToCreatePoolStep2()" class="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm transition">Continue</button>
+        </div>
+
+        <!-- STEP 2 -->
+        <div id="cpStep2" class="hidden space-y-5">
+          <!-- Selected Pair Header -->
+          <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 px-4 py-3 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="cpSummaryPair" class="text-sm font-extrabold text-white">POL / TATA</span>
+              <span id="cpSummaryFee" class="px-2 py-0.5 rounded-lg bg-[#141b29] text-gray-300 text-[11px] font-bold">0.25%</span>
+              <span id="cpSummaryHook" class="hidden px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">Hooked</span>
+            </div>
+            <button onclick="goToCreatePoolStep1()" class="text-xs font-bold text-emerald-400 hover:underline px-2 py-1">Edit</button>
+          </div>
+
+          <!-- Set Initial Price -->
+          <div class="space-y-3">
+            <h3 class="text-base font-bold text-white">Set initial price</h3>
+            <p class="text-xs text-gray-400">When creating a new pool, you must set the starting exchange rate for both tokens. This rate will reflect the initial market price.</p>
+
+            <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs text-gray-400 font-semibold">Initial price</span>
+                <div class="inline-flex rounded-full bg-[#131823] border border-gray-800 p-0.5">
+                  <button id="cpBaseBtnA" onclick="setCpPriceBase('A')" class="px-3 py-1 rounded-full bg-emerald-500 text-black text-xs font-extrabold">POL</button>
+                  <button id="cpBaseBtnB" onclick="setCpPriceBase('B')" class="px-3 py-1 rounded-full text-gray-400 text-xs font-bold">TATA</button>
+                </div>
+              </div>
+              <input id="cpInitialPriceInput" type="number" step="any" value="0" oninput="onCpInitialPriceChange()" class="w-full bg-transparent text-3xl font-extrabold text-white outline-none" />
+              <div class="flex items-center justify-between gap-2">
+                <span id="cpInitialPriceCaption" class="text-xs text-gray-400 font-mono">TATA = 1 POL</span>
+                <button id="cpUseMarketBtn" onclick="applyCpMarketRate()" class="hidden text-xs font-bold text-emerald-400 hover:underline">Use Market Rate</button>
+              </div>
+            </div>
+
+            <div id="cpMarketWarning" class="rounded-2xl bg-[#0b0f17] border border-amber-500/30 p-3.5 flex items-center gap-3 text-xs text-gray-300">
+              <span class="text-amber-400 text-base shrink-0">&#9888;</span>
+              <span id="cpMarketWarningText">Market price not found. Please do your own research to avoid loss of funds.</span>
+            </div>
+          </div>
+
+          <!-- Set Price Range -->
+          <div class="space-y-3">
+            <h3 class="text-base font-bold text-white">Set price range</h3>
+            <div class="grid grid-cols-2 rounded-full bg-[#0b0f17] border border-gray-800 p-1">
+              <button id="cpRangeFullBtn" onclick="setCpPriceRangeMode(true)" class="py-2 rounded-full bg-[#141b29] text-white text-xs font-bold transition">Full range</button>
+              <button id="cpRangeCustomBtn" onclick="setCpPriceRangeMode(false)" class="py-2 rounded-full text-gray-400 text-xs font-bold transition">Custom range</button>
+            </div>
+
+            <div id="cpCustomRangeGrid" class="hidden grid grid-cols-2 gap-2.5">
+              <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-3 text-center space-y-2">
+                <div class="text-xs text-gray-400">Min price</div>
+                <div class="flex items-center justify-between gap-1">
+                  <button onclick="stepCpBound('min', -1)" class="w-7 h-7 rounded-full bg-[#141b29] text-white font-bold">&minus;</button>
+                  <input id="cpMinPriceInput" type="number" step="any" value="0.0" class="w-full text-center bg-transparent text-sm font-bold text-white outline-none" />
+                  <button onclick="stepCpBound('min', 1)" class="w-7 h-7 rounded-full bg-[#141b29] text-white font-bold">+</button>
+                </div>
+                <div id="cpMinUnitLabel" class="text-[11px] text-gray-400">TATA per POL</div>
+              </div>
+              <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-3 text-center space-y-2">
+                <div class="text-xs text-gray-400">Max price</div>
+                <div class="flex items-center justify-between gap-1">
+                  <button onclick="stepCpBound('max', -1)" class="w-7 h-7 rounded-full bg-[#141b29] text-white font-bold">&minus;</button>
+                  <input id="cpMaxPriceInput" type="text" value="∞" class="w-full text-center bg-transparent text-sm font-bold text-white outline-none" />
+                  <button onclick="stepCpBound('max', 1)" class="w-7 h-7 rounded-full bg-[#141b29] text-white font-bold">+</button>
+                </div>
+                <div id="cpMaxUnitLabel" class="text-[11px] text-gray-400">TATA per POL</div>
+              </div>
+            </div>
+
+            <p id="cpRangeDesc" class="text-xs text-gray-400 leading-relaxed">
+              Setting full range liquidity when creating a pool ensures continuous market participation across all possible prices, offering simplicity but with potential for higher impermanent loss.
+            </p>
+          </div>
+
+          <!-- Deposit Tokens -->
+          <div class="space-y-3 pt-2 border-t border-gray-800">
+            <h3 class="text-base font-bold text-white">Deposit tokens</h3>
+            <p class="text-xs text-gray-400">Specify the token amounts for your liquidity contribution.</p>
+
+            <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <input id="cpAmtAInput" type="number" step="any" placeholder="0" oninput="onCpAmountAChange()" class="w-full bg-transparent text-2xl font-extrabold text-white outline-none" />
+                <div class="px-3 py-1.5 rounded-full bg-[#141b29] border border-gray-700 flex items-center gap-2 shrink-0">
+                  <span id="cpDepositIconA" class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center">PO</span>
+                  <span id="cpDepositSymA" class="text-xs font-extrabold text-white">POL</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <button onclick="setCpDepositPct('A', 25)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">25%</button>
+                  <button onclick="setCpDepositPct('A', 50)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">50%</button>
+                  <button onclick="setCpDepositPct('A', 75)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">75%</button>
+                  <button onclick="setCpDepositPct('A', 100)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">Max</button>
+                </div>
+                <span id="cpBalA" class="text-xs text-gray-400">0 POL</span>
+              </div>
+            </div>
+
+            <div class="rounded-2xl bg-[#0b0f17] border border-gray-800 p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <input id="cpAmtBInput" type="number" step="any" placeholder="0" class="w-full bg-transparent text-2xl font-extrabold text-white outline-none" />
+                <div class="px-3 py-1.5 rounded-full bg-[#141b29] border border-gray-700 flex items-center gap-2 shrink-0">
+                  <span id="cpDepositIconB" class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center">TA</span>
+                  <span id="cpDepositSymB" class="text-xs font-extrabold text-white">TATA</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <button onclick="setCpDepositPct('B', 25)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">25%</button>
+                  <button onclick="setCpDepositPct('B', 50)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">50%</button>
+                  <button onclick="setCpDepositPct('B', 75)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">75%</button>
+                  <button onclick="setCpDepositPct('B', 100)" class="px-2.5 py-1 rounded-full bg-[#141b29] hover:bg-[#1d273b] text-[11px] font-bold text-gray-300">Max</button>
+                </div>
+                <span id="cpBalB" class="text-xs text-gray-400">0 TATA</span>
+              </div>
+            </div>
+
+            <div id="createPoolNotice" class="hidden text-xs p-3 rounded-xl bg-black/40 border border-gray-800"></div>
+            <button id="cpSubmitBtn" onclick="handleCpPrimaryAction()" class="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm transition">Connect Wallet</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- On-Chain Liquidity Pools Section -->
+      <div class="card-dark rounded-2xl p-5 sm:p-6 space-y-4 border border-gray-800">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-extrabold text-white">On-Chain Liquidity Pools</h3>
+            <p id="cpPoolsNetSubtitle" class="text-xs text-gray-400">Real reserves synced from TataService Blockchain</p>
+          </div>
+          <button onclick="refreshOnChainPools()" class="px-3 py-1.5 rounded-xl bg-[#141b29] hover:bg-[#1c2538] border border-gray-700 text-xs font-bold text-white">&#8635; Refresh</button>
+        </div>
+        <div id="cpOnChainPoolsList" class="text-xs text-gray-400 text-center py-4 leading-relaxed">
+          No pools deployed on this network yet. No simulated liquidity is displayed—create the first trading pair to seed real reserves.
+        </div>
       </div>
     </section>
 
@@ -324,30 +587,138 @@
 
   </main>
 
-  <!-- WEB3 WALLET CONNECT MODAL (Works in Google Chrome Mobile + Desktop + DApp Browsers) -->
-  <div id="walletModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="card-dark rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+  <!-- UNIVERSAL WEB3 WALLET CONNECT MODAL (Google Chrome Desktop + Mobile + Iframes + DApp Browsers) -->
+  <div id="walletModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="card-dark rounded-2xl max-w-md w-full p-5 space-y-3.5 shadow-2xl my-auto">
       <div class="flex justify-between items-center">
-        <h3 class="text-lg font-extrabold text-white">Connect Web3 Wallet</h3>
-        <button onclick="closeWalletModal()" class="text-gray-400 hover:text-white text-lg font-bold">&times;</button>
+        <h3 class="text-lg font-extrabold text-white">Connect a wallet</h3>
+        <button onclick="closeWalletModal()" class="text-gray-400 hover:text-white text-xl font-bold leading-none px-1">&times;</button>
       </div>
-      <div class="space-y-2">
-        <button onclick="connectInjectedWallet()" class="w-full py-3 px-4 rounded-xl gold-bg font-extrabold text-xs flex items-center justify-between">
-          <span><i class="fas fa-plug mr-2"></i>Connect Browser Wallet (MetaMask / Trust / Extension)</span>
-          <span>&rarr;</span>
-        </button>
-        <div class="text-[11px] text-gray-400 pt-1 font-semibold">Using Google Chrome on Android / iPhone? Open directly inside your Wallet App:</div>
-        <div class="grid grid-cols-1 gap-2">
-          <a id="deepLinkMetaMask" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-orange-500/15 border border-orange-500/40 text-orange-300 font-bold text-xs flex items-center justify-between">
-            <span>🦊 Open in MetaMask Mobile App</span><span>Launch &nearr;</span>
-          </a>
-          <a id="deepLinkTrust" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-between">
-            <span>🛡️ Open in Trust Wallet App</span><span>Launch &nearr;</span>
+
+      <!-- Connected Wallet Summary -->
+      <div id="walletConnectedBox" class="hidden rounded-xl p-3.5 bg-emerald-500/10 border border-emerald-500/40 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider" id="walletConnectedLabel">Connected</span>
+          <button onclick="disconnectWallet()" class="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 text-[11px] font-bold hover:bg-red-500/30">Disconnect</button>
+        </div>
+        <div id="walletConnectedAddr" class="text-xs font-mono text-white break-all"></div>
+      </div>
+
+      <!-- Embedded Iframe / Mobile Chrome Helper Notice -->
+      <div id="walletEnvNotice" class="hidden rounded-xl p-3.5 bg-amber-500/10 border border-amber-500/35 space-y-2.5">
+        <div class="flex items-start gap-2 text-xs text-amber-200">
+          <i class="fas fa-exclamation-triangle text-amber-400 mt-0.5"></i>
+          <span id="walletEnvNoticeText">Browser extensions (MetaMask, Trust Wallet) are blocked inside embedded preview iframes.</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="openInNewBrowserTab()" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-extrabold text-xs flex items-center gap-1.5">
+            <i class="fas fa-external-link-alt"></i>
+            <span>Open in New Browser Tab</span>
+          </button>
+          <a href="#walletAppsList" onclick="document.getElementById('walletAppsList')?.scrollIntoView({behavior:'smooth'});return false;" class="px-3 py-1.5 rounded-lg bg-[#131823] border border-gray-700 text-gray-200 font-bold text-xs flex items-center gap-1.5">
+            <i class="fas fa-mobile-alt"></i>
+            <span>Mobile Wallet Apps</span>
           </a>
         </div>
       </div>
-      <div class="border-t border-gray-800 pt-3 space-y-2">
-        <div class="text-[11px] text-gray-400 font-semibold">Or Connect Wallet Address directly in Chrome (Live RPC Balance &amp; Portfolio):</div>
+
+      <!-- Auto-Detected Chrome / EIP-6963 Extensions -->
+      <div id="detectedWalletsBox" class="hidden space-y-2">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Detected Browser Extensions</div>
+        <div id="detectedWalletsList" class="space-y-2"></div>
+      </div>
+
+      <!-- All Major Web3 Wallets -->
+      <div id="walletAppsList" class="space-y-2">
+        <button onclick="connectWalletByType('trust')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-blue-500/50 transition flex items-center justify-between text-left">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-lg shrink-0">🛡️</div>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-white truncate">Trust Wallet Mobile &amp; Extension</div>
+              <div class="text-[11px] text-gray-400 truncate" id="subTrust">Tap to open in Trust Wallet DApp Browser</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
+        </button>
+
+        <button onclick="connectWalletConnect()" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-sky-500/50 transition flex items-center justify-between text-left">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-lg shrink-0">🔗</div>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-white truncate">WalletConnect</div>
+              <div class="text-[11px] text-gray-400 truncate" id="subWc">Open directly in any mobile wallet app</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
+        </button>
+
+        <!-- Expandable Extra Mobile Wallets & WalletConnect Project ID Drawer -->
+        <div id="wcExtraPanel" class="hidden rounded-xl p-3 bg-[#090c12] border border-sky-500/30 space-y-2">
+          <div class="text-[11px] font-bold text-sky-300">More Web3 Mobile &amp; Extension Wallets</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="connectWalletByType('okx')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
+              <span>⚫ OKX Wallet</span><span class="text-cyan-400">&nearr;</span>
+            </button>
+            <button onclick="connectWalletByType('bitget')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
+              <span>💠 Bitget Wallet</span><span class="text-cyan-400">&nearr;</span>
+            </button>
+            <button onclick="connectWalletByType('safepal')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
+              <span>🔐 SafePal</span><span class="text-cyan-400">&nearr;</span>
+            </button>
+            <button onclick="connectWalletByType('rainbow')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
+              <span>🌈 Rainbow</span><span class="text-cyan-400">&nearr;</span>
+            </button>
+          </div>
+          <div class="pt-1 border-t border-gray-800 space-y-1.5">
+            <div class="text-[10px] text-gray-400">Optional: Enter Reown / WalletConnect Project ID for live QR Modal in Chrome:</div>
+            <div class="flex gap-1.5">
+              <input id="wcProjectIdInput" placeholder="WalletConnect Project ID" class="flex-1 bg-[#131823] border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-white" />
+              <button onclick="saveAndLaunchWalletConnect()" class="px-2.5 py-1.5 rounded-lg bg-sky-500 text-black font-bold text-[11px]">Launch QR</button>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="connectWalletByType('metamask')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-orange-500/50 transition flex items-center justify-between text-left">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-lg shrink-0">🦊</div>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-white truncate">MetaMask</div>
+              <div class="text-[11px] text-gray-400 truncate" id="subMetaMask">Tap to open in MetaMask Mobile Browser</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
+        </button>
+
+        <button onclick="connectWalletByType('coinbase')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-blue-400/50 transition flex items-center justify-between text-left">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-lg shrink-0">🔵</div>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-white truncate">Coinbase Wallet</div>
+              <div class="text-[11px] text-gray-400 truncate" id="subCoinbase">Tap to open in Coinbase Wallet App</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
+        </button>
+
+        <button onclick="connectWalletByType('binance')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-yellow-500/50 transition flex items-center justify-between text-left">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-lg shrink-0">🟡</div>
+            <div class="min-w-0">
+              <div class="text-xs font-extrabold text-white truncate">Binance Wallet</div>
+              <div class="text-[11px] text-gray-400 truncate" id="subBinance">BNB Smart Chain Web3 wallet</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 text-[11px] text-gray-500">
+        <div class="h-px bg-gray-800 flex-1"></div>
+        <span>or</span>
+        <div class="h-px bg-gray-800 flex-1"></div>
+      </div>
+
+      <div class="space-y-2">
         <div class="flex gap-2">
           <input id="manualWalletInput" placeholder="Paste 0x... EVM Address" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
           <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
@@ -356,6 +727,18 @@
           👑 Connect App Owner Wallet (0xD9e5...1CA4 • 0 Listing Fee)
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- CREATE POOL TOKEN PICKER MODAL -->
+  <div id="cpTokenPickerModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="card-dark w-full max-w-md rounded-2xl p-5 space-y-3 border border-gray-800">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-extrabold text-white">Select Token</h3>
+        <button onclick="closeCpTokenPicker()" class="text-gray-400 hover:text-white text-lg px-2">&times;</button>
+      </div>
+      <input id="cpTokenSearchInput" oninput="renderCpTokenPickerList()" placeholder="Search symbol, name, or 0x address" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2.5 text-xs text-white" />
+      <div id="cpTokenPickerList" class="max-h-72 overflow-y-auto space-y-1.5"></div>
     </div>
   </div>
 

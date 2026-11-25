@@ -20,6 +20,8 @@ val CryptoGreen = Color(0xFF0ECB81)
 val CryptoGreenBg = Color(0x1F0ECB81)
 val CryptoRed = Color(0xFFF6465D)
 val CryptoRedBg = Color(0x1FF6465D)
+val WarningAmber = Color(0xFFF59E0B)
+val WarningAmberBg = Color(0x1FF59E0B)
 
 // Text & Content
 val TextPrimary = Color(0xFFF5F6F8)
