@@ -251,7 +251,7 @@ fun NetworkSelectorDialog(
                                         color = TextPrimary
                                     )
                                     Text(
-                                        text = if (net.isEvm) "Chain ID: ${net.chainId} • Mainnet" else "Solana Mainnet-Beta • ${net.symbol}",
+                                        text = "Chain ID: ${net.chainId} • Mainnet",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = TextSecondary
                                     )
@@ -387,7 +387,7 @@ fun WalletConnectDialog(
                     }
                 } else {
                     Text(
-                        text = "Open directly in MetaMask / Trust Wallet / Phantom for real on-chain signing, or paste your wallet address to track live balances:",
+                        text = "Open directly in MetaMask or Trust Wallet for real on-chain signing, or paste your 0x wallet address to track live balances:",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
@@ -466,43 +466,6 @@ fun WalletConnectDialog(
                         }
                     }
 
-                    // Phantom Wallet Deep Link (Solana)
-                    Surface(
-                        onClick = {
-                            openExternalUrl("https://phantom.app/ul/browse/https://tataswap.onrender.com/dex.html")
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFAB9FF2)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("👻", fontSize = 18.sp)
-                                }
-                                Column {
-                                    Text("Phantom (Solana Mainnet)", fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text("Open TataSwap in Phantom", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                }
-                            }
-                            Icon(Icons.Default.OpenInNew, contentDescription = "Open Phantom", tint = TextSecondary, modifier = Modifier.size(18.dp))
-                        }
-                    }
-
                     // App Owner Wallet Option (0 Listing Fee)
                     Surface(
                         onClick = { onConnectCustom("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4") },
@@ -539,8 +502,8 @@ fun WalletConnectDialog(
                             inputAddress = it
                             addressError = null
                         },
-                        label = { Text("Paste Real 0x or Solana Address") },
-                        placeholder = { Text("0x... or Solana address") },
+                        label = { Text("Paste Real 0x EVM Address") },
+                        placeholder = { Text("0x...") },
                         singleLine = true,
                         isError = addressError != null,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -564,11 +527,10 @@ fun WalletConnectDialog(
                         onClick = {
                             val clean = inputAddress.trim()
                             val isValidEvm = clean.startsWith("0x") && clean.length == 42
-                            val isValidSol = !clean.startsWith("0x") && clean.length in 32..44
-                            if (isValidEvm || isValidSol) {
+                            if (isValidEvm) {
                                 onConnectCustom(clean)
                             } else {
-                                addressError = "Enter a valid 42-char 0x EVM address or Solana address."
+                                addressError = "Enter a valid 42-char 0x EVM wallet address."
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),

@@ -24,20 +24,15 @@ class Web3RpcClient {
         try {
             val payload = JSONObject().apply {
                 put("jsonrpc", "2.0")
-                put("method", if (isEvm) "eth_blockNumber" else "getSlot")
+                put("method", "eth_blockNumber")
                 put("params", JSONArray())
                 put("id", 1)
             }
             val responseStr = executeRpc(rpcUrl, payload.toString())
             val resObj = JSONObject(responseStr)
             if (resObj.has("result")) {
-                val blockNum = if (isEvm) {
-                    val hex = resObj.getString("result")
-                    java.lang.Long.decode(hex)
-                } else {
-                    resObj.getLong("result")
-                }
-                Result.success(blockNum)
+                val hex = resObj.getString("result")
+                Result.success(java.lang.Long.decode(hex))
             } else {
                 Result.failure(Exception(resObj.optJSONObject("error")?.optString("message") ?: "Unknown RPC error"))
             }
@@ -50,23 +45,17 @@ class Web3RpcClient {
         try {
             val payload = JSONObject().apply {
                 put("jsonrpc", "2.0")
-                put("method", if (isEvm) "eth_getBalance" else "getBalance")
-                put("params", if (isEvm) JSONArray().put(walletAddress).put("latest") else JSONArray().put(walletAddress))
+                put("method", "eth_getBalance")
+                put("params", JSONArray().put(walletAddress).put("latest"))
                 put("id", 2)
             }
             val responseStr = executeRpc(rpcUrl, payload.toString())
             val resObj = JSONObject(responseStr)
             if (resObj.has("result")) {
-                if (isEvm) {
-                    val hex = resObj.getString("result").removePrefix("0x")
-                    val wei = if (hex.isEmpty()) BigInteger.ZERO else BigInteger(hex, 16)
-                    val eth = BigDecimal(wei).divide(BigDecimal("1000000000000000000"), 4, java.math.RoundingMode.HALF_UP)
-                    Result.success(eth.toDouble())
-                } else {
-                    val lamports = resObj.getJSONObject("result").optLong("value", 0L)
-                    val sol = BigDecimal(lamports).divide(BigDecimal("1000000000"), 4, java.math.RoundingMode.HALF_UP)
-                    Result.success(sol.toDouble())
-                }
+                val hex = resObj.getString("result").removePrefix("0x")
+                val wei = if (hex.isEmpty()) BigInteger.ZERO else BigInteger(hex, 16)
+                val eth = BigDecimal(wei).divide(BigDecimal("1000000000000000000"), 4, java.math.RoundingMode.HALF_UP)
+                Result.success(eth.toDouble())
             } else {
                 Result.failure(Exception("Failed to fetch balance"))
             }
@@ -115,33 +104,6 @@ class Web3RpcClient {
     suspend fun inspectTokenContract(rpcUrl: String, contractAddress: String, isEvm: Boolean = true): Result<TokenContractInfo> = withContext(Dispatchers.IO) {
         try {
             val cleanAddr = contractAddress.trim()
-            if (!isEvm) {
-                if (cleanAddr.length !in 32..44) {
-                    return@withContext Result.failure(Exception("Invalid Solana SPL Mint address format."))
-                }
-                val solPayload = JSONObject().apply {
-                    put("jsonrpc", "2.0")
-                    put("method", "getAccountInfo")
-                    put("params", JSONArray().put(cleanAddr).put(JSONObject().apply { put("encoding", "jsonParsed") }))
-                    put("id", 10)
-                }
-                val solResp = JSONObject(executeRpc(rpcUrl, solPayload.toString()))
-                val valueObj = solResp.optJSONObject("result")?.optJSONObject("value")
-                val parsedInfo = valueObj?.optJSONObject("data")?.optJSONObject("parsed")?.optJSONObject("info")
-                val decimals = parsedInfo?.optInt("decimals", 9) ?: 9
-                val supply = parsedInfo?.optString("supply", "1000000000") ?: "1,000,000,000"
-                return@withContext Result.success(
-                    TokenContractInfo(
-                        address = cleanAddr,
-                        name = "Solana SPL Token",
-                        symbol = "SPL",
-                        decimals = decimals,
-                        totalSupply = supply,
-                        isVerifiedContract = valueObj != null
-                    )
-                )
-            }
-
             if (!cleanAddr.startsWith("0x") || cleanAddr.length != 42) {
                 return@withContext Result.failure(Exception("Invalid address format. Must be 42-character 0x hex address."))
             }
@@ -285,13 +247,12 @@ class Web3RpcClient {
 
         // 1. Primary: Binance Data Vision Public Market API (fast, reliable, no API key required)
         try {
-            val binanceUrl = "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22ETHUSDT%22,%22BNBUSDT%22,%22SOLUSDT%22,%22POLUSDT%22,%22BTCUSDT%22,%22CAKEUSDT%22%5D"
+            val binanceUrl = "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22ETHUSDT%22,%22BNBUSDT%22,%22POLUSDT%22,%22BTCUSDT%22,%22CAKEUSDT%22%5D"
             val body = executeGet(binanceUrl)
             val arr = JSONArray(body)
             val pairToSymbol = mapOf(
                 "ETHUSDT" to "ETH",
                 "BNBUSDT" to "BNB",
-                "SOLUSDT" to "SOL",
                 "POLUSDT" to "POL",
                 "BTCUSDT" to "BTCB",
                 "CAKEUSDT" to "CAKE"
@@ -316,7 +277,7 @@ class Web3RpcClient {
         // 2. Secondary: CoinGecko Public Simple Price API (fills CORE, USDT & any missing pairs)
         if (!map.containsKey("CORE") || !map.containsKey("ETH") || !map.containsKey("BNB")) {
             try {
-                val cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether,bitcoin,pancakeswap-token&vs_currencies=usd&include_24hr_change=true"
+                val cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,tether,bitcoin,pancakeswap-token&vs_currencies=usd&include_24hr_change=true"
                 val body = executeGet(cgUrl)
                 val json = JSONObject(body)
 
@@ -335,7 +296,6 @@ class Web3RpcClient {
                 putIfMissing("POL", "polygon-ecosystem-token")
                 putIfMissing("POL", "matic-network")
                 putIfMissing("CORE", "coredaoorg")
-                putIfMissing("SOL", "solana")
                 putIfMissing("USDT", "tether")
                 putIfMissing("BTCB", "bitcoin")
                 putIfMissing("CAKE", "pancakeswap-token")
@@ -347,11 +307,11 @@ class Web3RpcClient {
         // 3. Fallback: CryptoCompare Multi-Symbol Price API
         if (!map.containsKey("ETH") || !map.containsKey("BNB") || !map.containsKey("CORE")) {
             try {
-                val ccUrl = "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,SOL,USDT,BTC,CAKE&tsyms=USD"
+                val ccUrl = "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,USDT,BTC,CAKE&tsyms=USD"
                 val body = executeGet(ccUrl)
                 val raw = JSONObject(body).optJSONObject("RAW")
                 if (raw != null) {
-                    for (sym in listOf("ETH", "BNB", "POL", "CORE", "SOL", "USDT", "CAKE")) {
+                    for (sym in listOf("ETH", "BNB", "POL", "CORE", "USDT", "CAKE")) {
                         if (map.containsKey(sym)) continue
                         val usdObj = raw.optJSONObject(sym)?.optJSONObject("USD") ?: continue
                         val usd = usdObj.optDouble("PRICE", 0.0)

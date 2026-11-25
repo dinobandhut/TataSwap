@@ -68,16 +68,6 @@ val SupportedNetworks = listOf(
         explorerUrl = "https://scan.coredao.org",
         isTestnet = false,
         isEvm = true
-    ),
-    BlockchainNetwork(
-        id = "solana_mainnet",
-        name = "Solana Mainnet",
-        chainId = 101,
-        symbol = "SOL",
-        rpcUrl = "https://api.mainnet.solana.com",
-        explorerUrl = "https://solscan.io",
-        isTestnet = false,
-        isEvm = false
     )
 )
 

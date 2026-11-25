@@ -138,9 +138,8 @@ class DexRepository(
         val cleanAddr = rawAddress.substringBefore(" ").trim()
         val net = _currentNetwork.value
 
-        val isRealEvm = net.isEvm && cleanAddr.startsWith("0x") && cleanAddr.length == 42
-        val isRealSol = !net.isEvm && !cleanAddr.startsWith("0x") && cleanAddr.length in 32..44
-        if (!isRealEvm && !isRealSol) return
+        val isRealEvm = cleanAddr.startsWith("0x") && cleanAddr.length == 42
+        if (!isRealEvm) return
 
         val nativeRes = rpcClient.getNativeBalance(net.rpcUrl, cleanAddr, net.isEvm)
         nativeRes.onSuccess { nativeBal ->
@@ -155,11 +154,11 @@ class DexRepository(
         }
 
         // Sync real BEP-20 token balances when connected to BSC Mainnet
-        if (isRealEvm && net.id == "bsc_mainnet") {
+        if (net.id == "bsc_mainnet") {
             val currentList = _tokens.value
             val updatedBalances = mutableMapOf<String, Double>()
             for (token in currentList) {
-                if (token.symbol == "BNB" || token.symbol == "SOL" || !token.address.startsWith("0x") || token.address.length != 42) continue
+                if (token.symbol == "BNB" || !token.address.startsWith("0x") || token.address.length != 42) continue
                 val balRes = rpcClient.getErc20Balance(net.rpcUrl, token.address, cleanAddr, token.decimals)
                 balRes.onSuccess { bal ->
                     updatedBalances[token.address.lowercase()] = bal
@@ -181,7 +180,6 @@ class DexRepository(
         return when (walletType.lowercase()) {
             "metamask" -> "https://link.metamask.io/dapp/tataswap.onrender.com/dex.html"
             "trust" -> "https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetUrl"
-            "phantom" -> "https://phantom.app/ul/browse/$targetUrl"
             else -> targetUrl
         }
     }
@@ -189,10 +187,6 @@ class DexRepository(
     fun buildNativeTransferDeepLink(toAddress: String, amount: Double, walletType: String = "metamask"): String {
         val net = _currentNetwork.value
         val cleanTo = toAddress.trim()
-        if (!net.isEvm) {
-            val formatted = "%.6f".format(java.util.Locale.US, amount.coerceAtLeast(0.0))
-            return "solana:$cleanTo?amount=$formatted"
-        }
         val wei = java.math.BigDecimal.valueOf(amount.coerceAtLeast(0.0))
             .multiply(java.math.BigDecimal.TEN.pow(18))
             .toBigInteger()
@@ -683,19 +677,6 @@ class DexRepository(
             isVerified = true,
             userBalance = 85.0,
             totalSupply = "2,100,000,000"
-        ),
-        Token(
-            address = "So11111111111111111111111111111111111111112",
-            name = "Solana",
-            symbol = "SOL",
-            decimals = 9,
-            priceUsd = 210.0,
-            change24h = +3.25,
-            volume24h = 2890000.0,
-            liquidityUsd = 7100000.0,
-            isVerified = true,
-            userBalance = 4.2,
-            totalSupply = "588,000,000"
         )
     )
 

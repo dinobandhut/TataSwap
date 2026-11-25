@@ -113,13 +113,10 @@ fun WebDexViewScreen() {
                             val url = request?.url?.toString() ?: return false
                             val isWalletDeepLink = url.startsWith("metamask:") ||
                                 url.startsWith("trust:") ||
-                                url.startsWith("phantom:") ||
                                 url.startsWith("wc:") ||
                                 url.startsWith("ethereum:") ||
-                                url.startsWith("solana:") ||
                                 url.startsWith("https://link.metamask.io/") ||
-                                url.startsWith("https://link.trustwallet.com/") ||
-                                url.startsWith("https://phantom.app/ul/")
+                                url.startsWith("https://link.trustwallet.com/")
                             if (isWalletDeepLink) {
                                 launchExternalUri(url)
                                 return true

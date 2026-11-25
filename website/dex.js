@@ -43,22 +43,13 @@ const NETWORKS = {
     rpc: "https://rpc.coredao.org",
     explorer: "https://scan.coredao.org",
     isEvm: true
-  },
-  solana_mainnet: {
-    name: "Solana Mainnet",
-    chainId: 101,
-    chainIdHex: null,
-    symbol: "SOL",
-    rpc: "https://api.mainnet.solana.com",
-    explorer: "https://solscan.io",
-    isEvm: false
   }
 };
 
 const OFFICIAL_FEE_RECEIVER = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4";
 const OFFICIAL_OWNER_WALLET = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4";
-const PRICES = { TATA: 1.45, ETH: 3210.0, BNB: 624.5, POL: 0.55, CORE: 1.25, SOL: 185.0, USDT: 1.0 };
-const CHANGES_24H = { TATA: 4.2, ETH: 0.0, BNB: 0.0, POL: 0.0, CORE: 0.0, SOL: 0.0, USDT: 0.0 };
+const PRICES = { TATA: 1.45, ETH: 3210.0, BNB: 624.5, POL: 0.55, CORE: 1.25, USDT: 1.0 };
+const CHANGES_24H = { TATA: 4.2, ETH: 0.0, BNB: 0.0, POL: 0.0, CORE: 0.0, USDT: 0.0 };
 
 let TOKENS = [
   { symbol: "TATA", name: "TataSwap Token", address: "0x7A7A59a9DeCe06b86f1e58a2E49c7D59A1b7A7A5", decimals: 18, price: 1.45, change24h: 4.2, balance: 0, verified: true },
@@ -66,7 +57,6 @@ let TOKENS = [
   { symbol: "BNB", name: "BNB", address: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", decimals: 18, price: 624.5, change24h: 0.0, balance: 0, verified: true },
   { symbol: "POL", name: "Polygon", address: "0x0000000000000000000000000000000000001010", decimals: 18, price: 0.55, change24h: 0.0, balance: 0, verified: true },
   { symbol: "CORE", name: "Core DAO", address: "0x40375C92d9FAf44d2f9db9Bd9ba41a3317a2404f", decimals: 18, price: 1.25, change24h: 0.0, balance: 0, verified: true },
-  { symbol: "SOL", name: "Solana", address: "So11111111111111111111111111111111111111112", decimals: 9, price: 185.0, change24h: 0.0, balance: 0, verified: true },
   { symbol: "USDT", name: "Tether USD", address: "0x55d398326f99059fF775485246999027B3197955", decimals: 18, price: 1.0, change24h: 0.0, balance: 0, verified: true }
 ];
 
@@ -161,12 +151,6 @@ async function rpcRequest(method, params = []) {
 
 async function refreshBlock() {
   try {
-    const net = NETWORKS[activeNetKey];
-    if (!net.isEvm) {
-      const slot = await rpcRequest("getSlot");
-      document.getElementById("dashBlock").innerText = "Slot #" + Number(slot).toLocaleString();
-      return;
-    }
     const hex = await rpcRequest("eth_blockNumber");
     document.getElementById("dashBlock").innerText = "#" + parseInt(hex, 16).toLocaleString();
   } catch {
@@ -235,22 +219,6 @@ async function changeNetwork() {
   refreshBlock();
   if (walletAddress) refreshBalance();
   const net = NETWORKS[activeNetKey];
-  if (!net.isEvm) {
-    if (window.solana?.isPhantom) {
-      try {
-        const resp = await window.solana.connect();
-        walletAddress = resp.publicKey.toString();
-        walletMode = "solana";
-        localStorage.setItem("tataswap_wallet", walletAddress);
-        localStorage.setItem("tataswap_wallet_mode", walletMode);
-        updateWalletHeaderUi();
-        await refreshBalance();
-      } catch (err) {
-        console.warn("Solana wallet note:", err.message);
-      }
-    }
-    return;
-  }
   const provider = getEvmProvider();
   if (provider) {
     try {
@@ -284,10 +252,8 @@ function updateDeepLinks() {
   const hostPath = window.location.host + window.location.pathname;
   const mm = document.getElementById("deepLinkMetaMask");
   const tr = document.getElementById("deepLinkTrust");
-  const ph = document.getElementById("deepLinkPhantom");
   if (mm) mm.href = `https://link.metamask.io/dapp/${hostPath}`;
   if (tr) tr.href = `https://link.trustwallet.com/open_url?coin_id=20000714&url=${encodeURIComponent(currentUrl)}`;
-  if (ph) ph.href = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}`;
 }
 
 function connectWeb3Wallet() {
@@ -308,27 +274,6 @@ function closeWalletModal() {
 }
 
 async function connectInjectedWallet() {
-  const net = NETWORKS[activeNetKey];
-  if (!net.isEvm) {
-    if (!window.solana?.isPhantom) {
-      window.open(`https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`, "_blank");
-      return;
-    }
-    try {
-      const resp = await window.solana.connect();
-      walletAddress = resp.publicKey.toString();
-      walletMode = "solana";
-      localStorage.setItem("tataswap_wallet", walletAddress);
-      localStorage.setItem("tataswap_wallet_mode", walletMode);
-      updateWalletHeaderUi();
-      closeWalletModal();
-      await refreshBalance();
-    } catch (err) {
-      alert("Solana Wallet error: " + err.message);
-    }
-    return;
-  }
-
   const provider = getEvmProvider();
   if (!provider) {
     // Open MetaMask App deep link automatically if user taps browser connect on mobile Chrome
@@ -354,9 +299,8 @@ async function connectInjectedWallet() {
 async function connectManualAddress() {
   const raw = (document.getElementById("manualWalletInput")?.value || "").trim();
   const isEvmAddr = /^0x[a-fA-F0-9]{40}$/.test(raw);
-  const isSolAddr = raw.length >= 32 && raw.length <= 44 && !raw.startsWith("0x");
-  if (!isEvmAddr && !isSolAddr) {
-    return alert("Please enter a valid 0x EVM wallet address or Solana address.");
+  if (!isEvmAddr) {
+    return alert("Please enter a valid 0x EVM wallet address.");
   }
   walletAddress = raw;
   walletMode = "address";
@@ -393,21 +337,6 @@ async function refreshBalance() {
   if (!walletAddress) return;
   const net = NETWORKS[activeNetKey];
   try {
-    if (!net.isEvm) {
-      if (walletAddress.startsWith("0x")) {
-        document.getElementById("swapBalIn").innerText = "Balance: Switch to EVM for 0x wallet";
-        document.getElementById("portBal").innerText = "Switch to EVM Chain";
-        renderPortfolioHoldings();
-        return;
-      }
-      const res = await rpcRequest("getBalance", [walletAddress]);
-      nativeBalanceVal = (res?.value || 0) / 1e9;
-      document.getElementById("swapBalIn").innerText = `Balance: ${nativeBalanceVal.toFixed(4)} SOL`;
-      document.getElementById("portBal").innerText = `${nativeBalanceVal.toFixed(4)} SOL`;
-      renderPortfolioHoldings();
-      return;
-    }
-
     if (!walletAddress.startsWith("0x")) return;
     const hex = await rpcRequest("eth_getBalance", [walletAddress, "latest"]);
     nativeBalanceVal = Number(BigInt(hex)) / 1e18;
@@ -578,10 +507,6 @@ async function sendRealCrypto() {
   const net = NETWORKS[activeNetKey];
 
   if (!amountStr || Number(amountStr) <= 0) return alert("Enter a valid positive amount.");
-  if (!net.isEvm) {
-    window.open(`https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`, "_blank");
-    return;
-  }
   if (!/^0x[a-fA-F0-9]{40}$/.test(toAddr)) return alert("Enter a valid 0x recipient address.");
 
   const provider = getEvmProvider();
@@ -673,7 +598,6 @@ async function submitSwap() {
   if (!provider) return connectWeb3Wallet();
 
   const net = NETWORKS[activeNetKey];
-  if (!net.isEvm) return connectInjectedWallet();
 
   const cfg = getContractConfig();
   if (!/^0x[a-fA-F0-9]{40}$/.test(cfg.router)) {
@@ -825,22 +749,6 @@ function decodeStr(hex) {
 
 async function inspectListToken() {
   const addr = document.getElementById("listAddrInput").value.trim();
-  const net = NETWORKS[activeNetKey];
-  if (!net.isEvm) {
-    if (addr.length < 32 || addr.length > 44) return alert("Enter a valid Solana SPL Mint address.");
-    try {
-      const acc = await rpcRequest("getAccountInfo", [addr, { encoding: "jsonParsed" }]);
-      if (!acc?.value) return alert("Solana SPL Mint account not found on Mainnet.");
-      const decimals = acc?.value?.data?.parsed?.info?.decimals ?? 9;
-      document.getElementById("lpName").innerText = "Solana SPL Token";
-      document.getElementById("lpSym").innerText = "SPL";
-      document.getElementById("lpDec").innerText = decimals;
-      document.getElementById("listPreview").classList.remove("hidden");
-    } catch (err) {
-      alert("Solana RPC error: " + err.message);
-    }
-    return;
-  }
   if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return alert("Enter a valid 0x contract address.");
   try {
     const code = await rpcRequest("eth_getCode", [addr, "latest"]);
@@ -907,7 +815,7 @@ function formatUsd(val) {
 }
 
 function renderLivePriceCards() {
-  const symbols = ["ETH", "BNB", "SOL", "POL", "CORE", "TATA"];
+  const symbols = ["ETH", "BNB", "POL", "CORE", "TATA"];
   const html = symbols.map(sym => {
     const p = PRICES[sym] || 0;
     const chg = CHANGES_24H[sym] || 0;
@@ -959,11 +867,11 @@ async function refreshLivePrices() {
     try {
       const binRes = await fetch(
         "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=" +
-          encodeURIComponent(JSON.stringify(["ETHUSDT", "BNBUSDT", "SOLUSDT", "POLUSDT"]))
+          encodeURIComponent(JSON.stringify(["ETHUSDT", "BNBUSDT", "POLUSDT"]))
       );
       if (binRes.ok) {
         const rows = await binRes.json();
-        const mapSym = { ETHUSDT: "ETH", BNBUSDT: "BNB", SOLUSDT: "SOL", POLUSDT: "POL" };
+        const mapSym = { ETHUSDT: "ETH", BNBUSDT: "BNB", POLUSDT: "POL" };
         if (Array.isArray(rows)) {
           for (const row of rows) {
             const sym = mapSym[row.symbol];
@@ -983,7 +891,7 @@ async function refreshLivePrices() {
   if (!updated || !CHANGES_24H.CORE) {
     try {
       const cgRes = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether&vs_currencies=usd&include_24hr_change=true"
+        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,tether&vs_currencies=usd&include_24hr_change=true"
       );
       if (cgRes.ok) {
         const cg = await cgRes.json();
@@ -992,7 +900,6 @@ async function refreshLivePrices() {
         const pol = cg["polygon-ecosystem-token"] || cg["matic-network"];
         if (!updated && pol?.usd) { PRICES.POL = pol.usd; CHANGES_24H.POL = pol.usd_24h_change || 0; updated = true; }
         if (cg.coredaoorg?.usd) { PRICES.CORE = cg.coredaoorg.usd; CHANGES_24H.CORE = cg.coredaoorg.usd_24h_change || 0; updated = true; }
-        if (!updated && cg.solana?.usd) { PRICES.SOL = cg.solana.usd; CHANGES_24H.SOL = cg.solana.usd_24h_change || 0; updated = true; }
         if (cg.tether?.usd) { PRICES.USDT = cg.tether.usd; CHANGES_24H.USDT = cg.tether.usd_24h_change || 0; }
       }
     } catch {}

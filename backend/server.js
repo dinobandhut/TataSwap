@@ -22,14 +22,13 @@ function isOwnerWallet(addr) {
   return typeof addr === 'string' && addr.trim().toLowerCase() === OFFICIAL_OWNER_WALLET;
 }
 
-// Mainnet Blockchain RPC Endpoints (TataService, ETH, BNB, Polygon, Core, Solana)
+// Mainnet Blockchain RPC Endpoints (TataService, ETH, BNB, Polygon, Core)
 const RPC_URLS = {
   tataservice: process.env.TATA_RPC_URL || 'https://rpctata.duckdns.org/rpc',
   eth: process.env.ETH_RPC_URL || 'https://public.1rpc.io/eth',
   bsc: process.env.BSC_RPC_URL || 'https://public.1rpc.io/bnb',
   polygon: process.env.POLYGON_RPC_URL || 'https://public.1rpc.io/matic',
   core: process.env.CORE_RPC_URL || 'https://rpc.coredao.org',
-  solana: process.env.SOLANA_RPC_URL || 'https://api.mainnet.solana.com',
 };
 
 app.use(cors());
@@ -154,7 +153,6 @@ app.get('/health', async (req, res) => {
     { key: 'bsc', label: 'bscBlock', method: 'eth_blockNumber', isHex: true },
     { key: 'polygon', label: 'polygonBlock', method: 'eth_blockNumber', isHex: true },
     { key: 'core', label: 'coreBlock', method: 'eth_blockNumber', isHex: true },
-    { key: 'solana', label: 'solanaSlot', method: 'getSlot', isHex: false },
   ];
 
   await Promise.all(
@@ -175,26 +173,6 @@ app.get('/health', async (req, res) => {
 app.get('/api/rpc/inspect/:address', async (req, res) => {
   const address = req.params.address.trim();
   const chain = RPC_URLS[req.query.chain] ? req.query.chain : 'tataservice';
-
-  if (chain === 'solana') {
-    if (address.length < 32 || address.length > 44) {
-      return res.status(400).json({ error: 'Invalid Solana SPL Mint address format.' });
-    }
-    try {
-      const acc = await callRpc('solana', 'getAccountInfo', [address, { encoding: 'jsonParsed' }]);
-      const info = acc?.value?.data?.parsed?.info;
-      return res.json({
-        address,
-        chain: 'solana',
-        name: 'Solana SPL Token',
-        symbol: 'SPL',
-        decimals: info?.decimals ?? 9,
-        contractBytecodeExists: Boolean(acc?.value),
-      });
-    } catch (err) {
-      return res.status(502).json({ error: `Solana RPC inspection failed: ${err.message}` });
-    }
-  }
 
   if (!isValidAddress(address)) {
     return res.status(400).json({ error: 'Invalid 0x contract address format.' });
@@ -249,11 +227,11 @@ async function fetchLivePrices() {
   try {
     const binRes = await fetch(
       'https://data-api.binance.vision/api/v3/ticker/24hr?symbols=' +
-        encodeURIComponent(JSON.stringify(['ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'POLUSDT', 'BTCUSDT', 'CAKEUSDT']))
+        encodeURIComponent(JSON.stringify(['ETHUSDT', 'BNBUSDT', 'POLUSDT', 'BTCUSDT', 'CAKEUSDT']))
     );
     if (binRes.ok) {
       const rows = await binRes.json();
-      const mapSym = { ETHUSDT: 'ETH', BNBUSDT: 'BNB', SOLUSDT: 'SOL', POLUSDT: 'POL', BTCUSDT: 'BTCB', CAKEUSDT: 'CAKE' };
+      const mapSym = { ETHUSDT: 'ETH', BNBUSDT: 'BNB', POLUSDT: 'POL', BTCUSDT: 'BTCB', CAKEUSDT: 'CAKE' };
       if (Array.isArray(rows)) {
         for (const row of rows) {
           const sym = mapSym[row.symbol];
@@ -270,10 +248,10 @@ async function fetchLivePrices() {
   }
 
   // 2. CoinGecko (fills CORE + any missing tokens)
-  if (!prices.CORE || !prices.ETH || !prices.BNB || !prices.SOL || !prices.POL) {
+  if (!prices.CORE || !prices.ETH || !prices.BNB || !prices.POL) {
     try {
       const cgRes = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,solana,tether&vs_currencies=usd&include_24hr_change=true'
+        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,polygon-ecosystem-token,matic-network,coredaoorg,tether&vs_currencies=usd&include_24hr_change=true'
       );
       if (cgRes.ok) {
         const cg = await cgRes.json();
@@ -282,7 +260,6 @@ async function fetchLivePrices() {
         const polObj = cg['polygon-ecosystem-token'] || cg['matic-network'];
         if (!prices.POL && polObj?.usd) prices.POL = { usd: polObj.usd, change24h: polObj.usd_24h_change || 0, source: 'coingecko' };
         if (!prices.CORE && cg.coredaoorg?.usd) prices.CORE = { usd: cg.coredaoorg.usd, change24h: cg.coredaoorg.usd_24h_change || 0, source: 'coingecko' };
-        if (!prices.SOL && cg.solana?.usd) prices.SOL = { usd: cg.solana.usd, change24h: cg.solana.usd_24h_change || 0, source: 'coingecko' };
         if (cg.tether?.usd) prices.USDT = { usd: cg.tether.usd, change24h: cg.tether.usd_24h_change || 0, source: 'coingecko' };
       }
     } catch (err) {
@@ -291,15 +268,15 @@ async function fetchLivePrices() {
   }
 
   // 3. CryptoCompare fallback for any remaining missing tokens
-  if (!prices.ETH || !prices.BNB || !prices.SOL || !prices.CORE || !prices.POL) {
+  if (!prices.ETH || !prices.BNB || !prices.CORE || !prices.POL) {
     try {
       const ccRes = await fetch(
-        'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,SOL,USDT&tsyms=USD'
+        'https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH,BNB,POL,CORE,USDT&tsyms=USD'
       );
       if (ccRes.ok) {
         const cc = await ccRes.json();
         const raw = cc.RAW || {};
-        for (const sym of ['ETH', 'BNB', 'POL', 'CORE', 'SOL', 'USDT']) {
+        for (const sym of ['ETH', 'BNB', 'POL', 'CORE', 'USDT']) {
           if (!prices[sym] && raw[sym]?.USD?.PRICE) {
             prices[sym] = {
               usd: raw[sym].USD.PRICE,
@@ -318,7 +295,7 @@ async function fetchLivePrices() {
     prices,
     updatedAt: new Date(now).toISOString(),
   };
-  if (prices.ETH || prices.BNB || prices.SOL) {
+  if (prices.ETH || prices.BNB || prices.POL) {
     priceCache = { data: result, updatedAt: now };
   }
   return result;
@@ -472,7 +449,7 @@ app.post('/api/events/token-listed', async (req, res) => {
   const client = await pool.connect();
   try {
     // Verify transaction actually exists and succeeded on-chain via Mainnet RPC
-    const targetChain = RPC_URLS[chain] && chain !== 'solana' ? chain : 'tataservice';
+    const targetChain = RPC_URLS[chain] ? chain : 'tataservice';
     const receipt = await callRpc(targetChain, 'eth_getTransactionReceipt', [txHash]);
     if (!receipt || receipt.status !== '0x1') {
       return res.status(400).json({ error: 'Transaction not found or reverted on blockchain.' });

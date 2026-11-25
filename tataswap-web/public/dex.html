@@ -53,7 +53,6 @@
           <option value="bsc_mainnet">BNB Smart Chain (56)</option>
           <option value="polygon_mainnet">Polygon Mainnet (137)</option>
           <option value="core_mainnet">Core Blockchain (1116)</option>
-          <option value="solana_mainnet">Solana Mainnet (SOL)</option>
         </select>
         <button onclick="connectWeb3Wallet()" id="walletBtn" class="gold-bg px-4 py-2 rounded-xl text-xs font-extrabold flex items-center space-x-1.5">
           <i class="fas fa-wallet"></i>
@@ -80,20 +79,20 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Active RPC Block</div><div id="dashBlock" class="text-xl font-black text-emerald-400 mt-1">Syncing...</div></div>
         <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Listing Fee</div><div id="dashListingFee" class="text-xl font-black text-yellow-400 mt-1">5.00 USDT</div></div>
-        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Indexed Tokens</div><div id="dashTokensCount" class="text-xl font-black text-white mt-1">7</div></div>
+        <div class="card-dark rounded-xl p-5"><div class="text-xs text-gray-400">Indexed Tokens</div><div id="dashTokensCount" class="text-xl font-black text-white mt-1">6</div></div>
       </div>
       <div class="card-dark rounded-xl p-4">
         <div class="flex justify-between items-center mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Live Mainnet Market Prices</span>
           <span id="dashPriceStatus" class="text-[11px] text-emerald-400 font-semibold">Fetching live prices...</span>
         </div>
-        <div id="homeLivePrices" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-xs"></div>
+        <div id="homeLivePrices" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 text-xs"></div>
       </div>
     </section>
 
     <!-- 2. SWAP -->
     <section id="page-swap" class="dex-page flex flex-col items-center py-4 space-y-4">
-      <div id="swapLiveTicker" class="w-full max-w-2xl grid grid-cols-3 sm:grid-cols-6 gap-2 text-[11px]"></div>
+      <div id="swapLiveTicker" class="w-full max-w-2xl grid grid-cols-3 sm:grid-cols-5 gap-2 text-[11px]"></div>
       <div class="w-full max-w-md card-dark rounded-2xl p-5 space-y-3 shadow-2xl">
         <div class="flex justify-between items-center">
           <div class="flex items-center space-x-2">
@@ -113,7 +112,7 @@
           <div class="flex justify-between items-center gap-2">
             <input id="swapAmountIn" type="number" value="0.1" step="any" oninput="recalcSwap()" class="bg-transparent text-2xl font-bold text-white w-full focus:outline-none" />
             <select id="swapInToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-yellow-400">
-              <option value="TATA">TATA</option><option value="BNB" selected>BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="SOL">SOL</option><option value="USDT">USDT</option>
+              <option value="TATA">TATA</option><option value="BNB" selected>BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="USDT">USDT</option>
             </select>
           </div>
           <div id="swapPayUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
@@ -126,7 +125,7 @@
           <div class="flex justify-between items-center gap-2">
             <span id="swapAmountOut" class="text-2xl font-bold text-emerald-400">62.29</span>
             <select id="swapOutToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-emerald-400">
-              <option value="USDT" selected>USDT</option><option value="TATA">TATA</option><option value="BNB">BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="SOL">SOL</option>
+              <option value="USDT" selected>USDT</option><option value="TATA">TATA</option><option value="BNB">BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option>
             </select>
           </div>
           <div id="swapOutUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
@@ -274,7 +273,7 @@
           <h3 class="text-lg font-bold text-white"><i class="fas fa-paper-plane text-emerald-400 mr-2"></i>Send Real Crypto Coin</h3>
           <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">MAINNET TX</span>
         </div>
-        <p class="text-xs text-gray-400">Broadcast real on-chain coin or token transfers directly via MetaMask, Trust Wallet, or Phantom.</p>
+        <p class="text-xs text-gray-400">Broadcast real on-chain coin or token transfers directly via MetaMask or Trust Wallet.</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <select id="sendAssetSelect" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-bold text-yellow-400">
             <option value="NATIVE">Native Coin (Active Chain)</option>
@@ -283,7 +282,7 @@
           </select>
           <input id="sendAmountInput" type="number" step="any" placeholder="Amount (e.g. 0.01)" class="bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs text-white sm:col-span-2" />
         </div>
-        <input id="sendToInput" placeholder="Recipient 0x... or Solana Address" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-mono text-white" />
+        <input id="sendToInput" placeholder="Recipient 0x... Address" class="w-full bg-[#0d111a] border border-gray-700 rounded-xl p-3 text-xs font-mono text-white" />
         <button onclick="sendRealCrypto()" class="w-full py-3 rounded-xl gold-bg font-extrabold text-sm">Sign &amp; Send Real Transaction</button>
         <div id="sendTxStatus" class="text-xs text-center hidden"></div>
       </div>
@@ -348,15 +347,12 @@
           <a id="deepLinkTrust" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 font-bold text-xs flex items-center justify-between">
             <span>🛡️ Open in Trust Wallet App</span><span>Launch &nearr;</span>
           </a>
-          <a id="deepLinkPhantom" href="#" target="_blank" rel="noopener" class="w-full py-2.5 px-3 rounded-xl bg-purple-500/15 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center justify-between">
-            <span>👻 Open in Phantom App (Solana / EVM)</span><span>Launch &nearr;</span>
-          </a>
         </div>
       </div>
       <div class="border-t border-gray-800 pt-3 space-y-2">
         <div class="text-[11px] text-gray-400 font-semibold">Or Connect Wallet Address directly in Chrome (Live RPC Balance &amp; Portfolio):</div>
         <div class="flex gap-2">
-          <input id="manualWalletInput" placeholder="Paste 0x... or Solana Address" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
+          <input id="manualWalletInput" placeholder="Paste 0x... EVM Address" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
           <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
         </div>
         <button onclick="connectOwnerWalletDirect()" class="w-full py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">

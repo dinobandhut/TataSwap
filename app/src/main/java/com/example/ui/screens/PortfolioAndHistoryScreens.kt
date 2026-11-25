@@ -62,7 +62,6 @@ fun PortfolioScreen(
             "BNB" -> 624.50
             "POL" -> 0.45
             "CORE" -> 1.15
-            "SOL" -> 185.0
             else -> 1.45
         }
     val nativeValueUsd = nativeBalance * nativePriceUsd
@@ -380,7 +379,7 @@ fun PortfolioScreen(
                             sendError = null
                         },
                         label = { Text("Recipient Address") },
-                        placeholder = { Text(if (network.isEvm) "0x..." else "Solana address") },
+                        placeholder = { Text("0x...") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = BnbGold,
@@ -419,7 +418,7 @@ fun PortfolioScreen(
                             onClick = {
                                 val to = sendToAddress.trim()
                                 val amt = sendAmountText.toDoubleOrNull() ?: 0.0
-                                val validAddr = if (network.isEvm) to.startsWith("0x") && to.length == 42 else to.length in 32..44
+                                val validAddr = to.startsWith("0x") && to.length == 42
                                 if (!validAddr || amt <= 0.0) {
                                     sendError = "Enter valid recipient address & amount > 0."
                                 } else {
@@ -440,7 +439,7 @@ fun PortfolioScreen(
                             onClick = {
                                 val to = sendToAddress.trim()
                                 val amt = sendAmountText.toDoubleOrNull() ?: 0.0
-                                val validAddr = if (network.isEvm) to.startsWith("0x") && to.length == 42 else to.length in 32..44
+                                val validAddr = to.startsWith("0x") && to.length == 42
                                 if (!validAddr || amt <= 0.0) {
                                     sendError = "Enter valid recipient address & amount > 0."
                                 } else {

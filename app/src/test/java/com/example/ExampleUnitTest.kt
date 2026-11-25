@@ -23,7 +23,7 @@ class ExampleUnitTest {
 
     @Test
     fun `verify mainnet-only supported networks configuration`() {
-        assertEquals(6, SupportedNetworks.size)
+        assertEquals(5, SupportedNetworks.size)
         assertTrue(SupportedNetworks.none { it.isTestnet })
 
         val byId = SupportedNetworks.associateBy { it.id }
@@ -33,8 +33,7 @@ class ExampleUnitTest {
         assertEquals("https://public.1rpc.io/bnb", byId["bsc_mainnet"]?.rpcUrl)
         assertEquals("https://public.1rpc.io/matic", byId["polygon_mainnet"]?.rpcUrl)
         assertEquals("https://rpc.coredao.org", byId["core_mainnet"]?.rpcUrl)
-        assertEquals("https://api.mainnet.solana.com", byId["solana_mainnet"]?.rpcUrl)
-        assertFalse(byId["solana_mainnet"]!!.isEvm)
+        assertFalse(byId.containsKey("solana_mainnet"))
     }
 
     @Test
@@ -92,7 +91,6 @@ class ExampleUnitTest {
         val repo = DexRepository()
         assertTrue(repo.buildWalletDappDeepLink("metamask").startsWith("https://link.metamask.io/dapp/"))
         assertTrue(repo.buildWalletDappDeepLink("trust").startsWith("https://link.trustwallet.com/open_url"))
-        assertTrue(repo.buildWalletDappDeepLink("phantom").startsWith("https://phantom.app/ul/browse/"))
 
         val sendUri = repo.buildNativeTransferDeepLink("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", 1.0, "metamask")
         assertTrue(sendUri.contains("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4@810161?value=1000000000000000000"))
