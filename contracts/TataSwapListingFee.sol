@@ -84,7 +84,7 @@ contract TataSwapListingFee {
     ) {
         require(_initialFeeReceiver != address(0), "TataSwap: invalid fee receiver");
         owner = msg.sender;
-        // Default official fee receiver: 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4
+        // Default official fee receiver: 0x3f48248FFE235a5205d1D781fB6c852c71fc1556
         feeReceiver = _initialFeeReceiver;
         paymentToken = _paymentToken;
         listingFeeAmount = _initialFeeAmount; // 5 USDT

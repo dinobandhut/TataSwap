@@ -3,7 +3,7 @@
 Official Web3 Frontend for **TataSwap DEX** — a permissionless AMM & token listing decentralized exchange on **BNB Smart Chain** (and EVM networks).
 
 - **GitHub Repository:** `https://github.com/dinobandhut/Tataswap-web.git`
-- **Official DEX Fee Receiver Wallet:** `0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4`
+- **Official DEX Fee Receiver Wallet:** `0x3f48248FFE235a5205d1D781fB6c852c71fc1556`
 - **Permissionless Listing Fee:** `5.00 USDT`
 
 ---

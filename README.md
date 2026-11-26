@@ -9,7 +9,7 @@ TataSwap is a production-oriented, permissionless decentralized cryptocurrency e
 - **Project Name:** TataSwap
 - **Default Network:** BNB Smart Chain (BSC Testnet & Mainnet)
 - **Official DEX Owner & Fee Receiver Wallet:**  
-  `0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4`
+  `0x3f48248FFE235a5205d1D781fB6c852c71fc1556`
 - **Official Token Listing Fee:** **5.00 USDT**
 
 ---
@@ -18,7 +18,7 @@ TataSwap is a production-oriented, permissionless decentralized cryptocurrency e
 
 ### 1. Permissionless Token Listing with Automated Fee Collection
 - **100% Permissionless:** Any wallet user can list their own BEP-20 or ERC-20 token without admin approval.
-- **On-Chain Automated Fee:** When a user registers a listing, the `TataSwapListingFee.sol` contract automatically transfers 5 USDT directly to the DEX Owner's official wallet (`0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4`).
+- **On-Chain Automated Fee:** When a user registers a listing, the `TataSwapListingFee.sol` contract automatically transfers 5 USDT directly to the DEX Owner's official wallet (`0x3f48248FFE235a5205d1D781fB6c852c71fc1556`).
 - **RPC Contract Verification:** Inspects token bytecode, name, symbol, decimals, and total supply via live JSON-RPC calls.
 - **Safety Labels:** Clearly tags verified tokens vs community unverified tokens to protect traders from malicious contracts.
 
@@ -36,7 +36,7 @@ TataSwap is a production-oriented, permissionless decentralized cryptocurrency e
 2. **Swap:** Token selector, live rate quotes, slippage tolerance, gas estimation, on-chain execution.
 3. **Explore Tokens:** Searchable token registry with filters (Verified, Community, Top Gainers).
 4. **Token Details:** Price chart canvas, contract address copy, BscScan explorer link, liquidity metrics.
-5. **Create Token Listing:** Permissionless listing wizard with automated 5 USDT fee to `0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4`.
+5. **Create Token Listing:** Permissionless listing wizard with automated 5 USDT fee to `0x3f48248FFE235a5205d1D781fB6c852c71fc1556`.
 6. **Create Liquidity Pool:** Custom token pair creator with fee tier selection.
 7. **Add Liquidity:** Auto-balanced deposit calculation and LP minting.
 8. **Remove Liquidity:** Percentage slider (25% to 100%) and token withdrawal preview.
@@ -50,7 +50,7 @@ TataSwap is a production-oriented, permissionless decentralized cryptocurrency e
 
 ## 📜 Smart Contracts (`/contracts`)
 
-- `TataSwapListingFee.sol`: Collects 5 USDT listing fee and routes it to `0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4`. Includes reentrancy protection, emergency pause, and event logging (`TokenListed`).
+- `TataSwapListingFee.sol`: Collects 5 USDT listing fee and routes it to `0x3f48248FFE235a5205d1D781fB6c852c71fc1556`. Includes reentrancy protection, emergency pause, and event logging (`TokenListed`).
 - `TataSwapFactory.sol`: Deploys and indexes all liquidity pool pairs.
 - `TataSwapRouter.sol`: Multi-hop swap execution, deadline enforcement, slippage validation, liquidity addition.
 - `TataSwapPool.sol`: Core AMM pool with constant product math, `mint`, `burn`, and `swap`.

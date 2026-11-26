@@ -162,7 +162,7 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
                             Text("Official Fee Receiver:", style = MaterialTheme.typography.labelSmall, color = TextSecondary, fontSize = 9.sp)
-                            Text("0xD9e5...CA4", style = MaterialTheme.typography.labelSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
+                            Text("0x3f48...1556", style = MaterialTheme.typography.labelSmall, color = NeonCyan, fontWeight = FontWeight.Bold)
                             Text("Listing Fee: 5 USDT", style = MaterialTheme.typography.labelSmall, color = BnbGold, fontSize = 10.sp)
                         }
                     }

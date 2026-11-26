@@ -26,7 +26,7 @@ class ExampleRobolectricTest {
     fun `verify official DEX owner wallet and listing fee configuration`() {
         val repo = DexRepository()
         val stats = repo.protocolStats.value
-        assertEquals("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", stats.officialFeeReceiverWallet)
+        assertEquals("0x3f48248FFE235a5205d1D781fB6c852c71fc1556", stats.officialFeeReceiverWallet)
         assertEquals(5.0, stats.officialListingFeeUsdt, 0.001)
     }
 
@@ -47,7 +47,7 @@ class ExampleRobolectricTest {
         assertTrue(res.isSuccess)
         val tx = res.getOrNull()
         assertNotNull(tx)
-        assertTrue(tx!!.description.contains("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4"))
+        assertTrue(tx!!.description.contains("0x3f48248FFE235a5205d1D781fB6c852c71fc1556"))
 
         val postUsdt = repo.tokens.value.first { it.symbol == "USDT" }.userBalance
         assertEquals(initialUsdt - 5.0, postUsdt, 0.001)

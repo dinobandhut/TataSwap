@@ -40,7 +40,7 @@ class ExampleUnitTest {
     fun `verify default network and official fee receiver configuration`() {
         val repo = DexRepository()
         assertEquals("tataservice", repo.currentNetwork.value.id)
-        assertEquals("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", repo.protocolStats.value.officialFeeReceiverWallet)
+        assertEquals("0x3f48248FFE235a5205d1D781fB6c852c71fc1556", repo.protocolStats.value.officialFeeReceiverWallet)
         assertEquals(5.0, repo.protocolStats.value.officialListingFeeUsdt, 0.001)
     }
 
@@ -51,7 +51,7 @@ class ExampleUnitTest {
         val initialFeesCollected = repo.protocolStats.value.totalListingFeesCollectedUsdt
 
         // 1. Connect as App Owner (official owner/receiver address)
-        repo.connectWallet("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4")
+        repo.connectWallet("0x3f48248FFE235a5205d1D781fB6c852c71fc1556")
         assertTrue(repo.isAppOwnerWallet(repo.connectedWallet.value))
 
         val ownerRes = repo.listNewTokenPermissionless(
@@ -97,8 +97,8 @@ class ExampleUnitTest {
         assertTrue(repo.buildWalletDappDeepLink("bitget").startsWith("https://bkcode.vip"))
         assertTrue(repo.buildWalletDappDeepLink("safepal").startsWith("https://link.safepal.io/dapp"))
 
-        val sendUri = repo.buildNativeTransferDeepLink("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", 1.0, "metamask")
-        assertTrue(sendUri.contains("0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4@810161?value=1000000000000000000"))
+        val sendUri = repo.buildNativeTransferDeepLink("0x3f48248FFE235a5205d1D781fB6c852c71fc1556", 1.0, "metamask")
+        assertTrue(sendUri.contains("0x3f48248FFE235a5205d1D781fB6c852c71fc1556@810161?value=1000000000000000000"))
     }
 
     @Test

@@ -24,7 +24,7 @@ contract TataSwapFeeManager {
     constructor(address _initialTreasury) {
         require(_initialTreasury != address(0), "TataSwap: invalid treasury");
         owner = msg.sender;
-        // Default official treasury / fee receiver: 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4
+        // Default official treasury / fee receiver: 0x3f48248FFE235a5205d1D781fB6c852c71fc1556
         protocolFeeTreasury = _initialTreasury;
         defaultSwapFee = 2500; // 0.25%
         protocolFeeShare = 2000; // 20% of fee to treasury (0.05% net)

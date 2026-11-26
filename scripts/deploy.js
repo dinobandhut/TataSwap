@@ -4,7 +4,7 @@ async function main() {
   console.log("=== TataSwap Protocol Deployment ===");
 
   // Official DEX Fee Receiver Wallet as configured:
-  const OFFICIAL_FEE_RECEIVER = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4";
+  const OFFICIAL_FEE_RECEIVER = "0x3f48248FFE235a5205d1D781fB6c852c71fc1556";
   console.log(`DEX Owner & Fee Receiver: ${OFFICIAL_FEE_RECEIVER}`);
 
   // 1. Deploy TataSwapFactory

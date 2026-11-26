@@ -57,7 +57,7 @@ data class ListingUiState(
     val initialPriceUsd: String = "1.00",
     val requiredFeeUsdt: Double = 5.0,
     val isOwnerWallet: Boolean = false,
-    val feeReceiverAddress: String = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4",
+    val feeReceiverAddress: String = "0x3f48248FFE235a5205d1D781fB6c852c71fc1556",
     val isSubmitting: Boolean = false,
     val listingSuccessTx: TransactionRecord? = null,
     val errorMessage: String? = null
@@ -353,7 +353,7 @@ class DexViewModel(
                     if (wasOwner) {
                         "Owner listed ${info.symbol} with 0.00 USDT fee!"
                     } else {
-                        "Token ${info.symbol} successfully listed! Fee sent to 0xD9e5...CA4"
+                        "Token ${info.symbol} successfully listed! Fee sent to 0x3f48...1556"
                     }
                 )
             }.onFailure { err ->

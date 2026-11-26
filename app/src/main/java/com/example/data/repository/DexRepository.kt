@@ -56,7 +56,7 @@ class DexRepository(
             activePoolsCount = 24,
             totalListingFeesCollectedUsdt = 625.0,
             totalProtocolFeesUsd = 19201.25,
-            officialFeeReceiverWallet = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4",
+            officialFeeReceiverWallet = "0x3f48248FFE235a5205d1D781fB6c852c71fc1556",
             officialListingFeeUsdt = 5.0,
             isEmergencyPaused = false
         )
@@ -330,7 +330,7 @@ class DexRepository(
 
     /**
      * PERMISSIONLESS TOKEN LISTING WITH ON-CHAIN 5 USDT FEE COLLECTION
-     * Regular users pay 5 USDT to DEX Owner Wallet: 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4
+     * Regular users pay 5 USDT to DEX Owner Wallet: 0x3f48248FFE235a5205d1D781fB6c852c71fc1556
      * App Owner pays ZERO (0.00 USDT) fee for any token listing.
      */
     fun listNewTokenPermissionless(
@@ -568,7 +568,7 @@ class DexRepository(
         return Result.success(tx)
     }
 
-    // Admin Controls (DEX Owner: 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4)
+    // Admin Controls (DEX Owner: 0x3f48248FFE235a5205d1D781fB6c852c71fc1556)
     fun updateOfficialListingFee(newFeeUsdt: Double) {
         _protocolStats.update { it.copy(officialListingFeeUsdt = newFeeUsdt.coerceAtLeast(0.0)) }
     }
@@ -788,7 +788,7 @@ class DexRepository(
             txHash = "0x2c109438adfe902348a280918cfae81290384102948190283912a8491039aef2",
             type = TransactionType.TOKEN_LISTING,
             title = "Permissionless Listing: TATA (TataSwap Token)",
-            description = "5.00 USDT listing fee collected to 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4",
+            description = "5.00 USDT listing fee collected to 0x3f48248FFE235a5205d1D781fB6c852c71fc1556",
             tokenInSymbol = "USDT",
             amountIn = 5.0,
             timestampMs = System.currentTimeMillis() - 3600000,

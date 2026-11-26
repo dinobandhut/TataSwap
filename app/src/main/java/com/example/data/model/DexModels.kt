@@ -144,7 +144,7 @@ data class DexProtocolStats(
     val activePoolsCount: Int = 24,
     val totalListingFeesCollectedUsdt: Double = 625.0,
     val totalProtocolFeesUsd: Double = 19201.25,
-    val officialFeeReceiverWallet: String = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4",
+    val officialFeeReceiverWallet: String = "0x3f48248FFE235a5205d1D781fB6c852c71fc1556",
     val officialListingFeeUsdt: Double = 5.0,
     val isEmergencyPaused: Boolean = false
 )

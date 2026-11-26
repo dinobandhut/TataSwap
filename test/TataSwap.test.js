@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 
 describe("TataSwap Smart Contracts Suite", function () {
   let owner, user, feeReceiver, mockUsdt, listingFeeContract, factory;
-  const OFFICIAL_RECEIVER = "0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4";
+  const OFFICIAL_RECEIVER = "0x3f48248FFE235a5205d1D781fB6c852c71fc1556";
   const LISTING_FEE = ethers.parseUnits("5.0", 18); // 5 USDT
 
   beforeEach(async function () {
@@ -14,7 +14,7 @@ describe("TataSwap Smart Contracts Suite", function () {
     // MockToken helper or inline standard ERC20 for tests
   });
 
-  it("Should configure the official DEX fee receiver to 0xD9e5c5d0522B1eeE8Ff9bC006F64d53d2C411CA4", async function () {
+  it("Should configure the official DEX fee receiver to 0x3f48248FFE235a5205d1D781fB6c852c71fc1556", async function () {
     const ListingFee = await ethers.getContractFactory("TataSwapListingFee");
     const listingFee = await ListingFee.deploy(
       OFFICIAL_RECEIVER,
