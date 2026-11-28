@@ -620,15 +620,73 @@
       </div>
     </section>
 
-    <!-- 12. ADMIN DASHBOARD & SMART CONTRACT CONFIG -->
+    <!-- 12. ADMIN DASHBOARD & SMART CONTRACT CONFIG (GATED BY ADMIN LOGIN) -->
     <section id="page-admin" class="dex-page hidden max-w-2xl mx-auto space-y-4">
-      <div class="card-dark rounded-2xl p-6 space-y-4 border-yellow-500/40">
-        <h2 class="text-xl font-bold">DEX Owner &amp; Admin Dashboard</h2>
+      <!-- Admin Login Gate -->
+      <div id="adminLoginGate" class="card-dark rounded-2xl p-6 space-y-4 border-yellow-500/40 max-w-md mx-auto">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-yellow-500/15 border border-yellow-500/40 flex items-center justify-center text-yellow-400">
+            <i class="fas fa-lock"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-extrabold text-white">Admin Dashboard Login</h2>
+            <p class="text-[11px] text-gray-400">Authorized administrator credentials required</p>
+          </div>
+        </div>
+
+        <form onsubmit="event.preventDefault(); loginAdminDashboard();" class="space-y-3 text-xs">
+          <div class="space-y-1">
+            <label for="adminEmailInput" class="block text-gray-300 font-bold">Admin Email</label>
+            <div class="flex gap-2">
+              <input id="adminEmailInput" type="password" autocomplete="off" placeholder="Enter admin email" class="flex-1 bg-[#090c12] border border-gray-700 rounded-xl px-3 py-2.5 text-white" />
+              <button type="button" id="toggleAdminEmailBtn" onclick="toggleAdminFieldVisibility('adminEmailInput', 'toggleAdminEmailBtn')" class="px-3 py-2 rounded-xl bg-[#131823] border border-gray-700 text-gray-300 font-bold">Show</button>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label for="adminPasswordInput" class="block text-gray-300 font-bold">Admin Password</label>
+            <div class="flex gap-2">
+              <input id="adminPasswordInput" type="password" autocomplete="off" placeholder="Enter admin password" class="flex-1 bg-[#090c12] border border-gray-700 rounded-xl px-3 py-2.5 text-white" />
+              <button type="button" id="toggleAdminPassBtn" onclick="toggleAdminFieldVisibility('adminPasswordInput', 'toggleAdminPassBtn')" class="px-3 py-2 rounded-xl bg-[#131823] border border-gray-700 text-gray-300 font-bold">Show</button>
+            </div>
+          </div>
+
+          <div id="adminLoginError" class="hidden rounded-xl p-2.5 bg-red-500/15 border border-red-500/40 text-red-300 font-semibold"></div>
+
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold text-xs">
+            Login to Admin Dashboard
+          </button>
+        </form>
+      </div>
+
+      <!-- Unlocked Admin Dashboard -->
+      <div id="adminDashboardContent" class="hidden card-dark rounded-2xl p-6 space-y-4 border-yellow-500/40">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-xl font-bold">DEX Owner &amp; Admin Dashboard</h2>
+          <button onclick="logoutAdminDashboard()" class="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-xs font-bold hover:bg-red-500/25">
+            <i class="fas fa-lock mr-1"></i> Lock
+          </button>
+        </div>
+
         <div class="card-darker rounded-xl p-4 text-xs space-y-2">
           <div>Official Owner &amp; Fee Receiver: <span class="font-mono text-cyan-400 font-bold break-all">0x3f48248FFE235a5205d1D781fB6c852c71fc1556</span></div>
           <div>User Listing Fee: <strong class="text-yellow-400">5.00 USDT</strong> | Owner Fee: <strong class="text-emerald-400">0.00 USDT (Exempt)</strong></div>
           <div>Contract Security: <span class="text-emerald-400">OnlyOwner • ReentrancyGuard • Pausable</span></div>
         </div>
+
+        <!-- Moved Admin Wallet & Watch-Only Controls -->
+        <div class="card-darker rounded-xl p-4 space-y-3 text-xs border border-emerald-500/30">
+          <div class="font-bold text-white">Admin Wallet &amp; Watch-Only Controls</div>
+          <button onclick="connectOwnerWalletDirect()" class="w-full py-2.5 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-left">
+            👑 App Owner Wallet (0 Fee) — 0x3f48...1556 • Free Token Listing
+          </button>
+          <div class="flex gap-2">
+            <input id="manualWalletInput" placeholder="Watch-Only / Paste 0x EVM Address" class="flex-1 bg-[#090c12] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
+            <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
+          </div>
+          <div id="adminWalletFeedback" class="hidden text-xs font-semibold"></div>
+        </div>
+
         <div class="card-darker rounded-xl p-4 space-y-3 text-xs">
           <div class="font-bold text-white">Deployed Mainnet Contracts (Optional Custom Router/Listing)</div>
           <input id="cfgRouterAddr" placeholder="Deployed TataSwapRouter.sol (0x...)" class="w-full bg-[#090c12] border border-gray-700 rounded-lg p-2.5 font-mono text-white" />
@@ -636,13 +694,14 @@
           <button onclick="saveContractConfig()" class="px-4 py-2 rounded-lg bg-cyan-500 text-black font-bold">Save Contract Addresses</button>
           <span id="cfgSaveMsg" class="text-emerald-400 ml-2 hidden">Saved!</span>
         </div>
+
         <div class="card-darker rounded-xl p-4 space-y-3 text-xs border border-sky-500/30">
           <div class="flex items-center justify-between gap-2">
-            <span class="font-bold text-white">Reown / WalletConnect Cloud Project ID</span>
+            <span class="font-bold text-white">WalletConnect Project ID</span>
             <span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">Active</span>
           </div>
           <div class="flex gap-2">
-            <input id="cfgWcProjectId" value="58ad26007a1212b3406b582c93228d50" placeholder="Reown / WalletConnect Project ID" class="flex-1 bg-[#090c12] border border-gray-700 rounded-lg p-2.5 font-mono text-emerald-300" />
+            <input id="cfgWcProjectId" value="58ad26007a1212b3406b582c93228d50" placeholder="WalletConnect Project ID" class="flex-1 bg-[#090c12] border border-gray-700 rounded-lg p-2.5 font-mono text-emerald-300" />
             <button onclick="copyAdminWcProjectId()" class="px-3 py-2 rounded-lg bg-[#131823] border border-gray-700 text-cyan-300 font-bold shrink-0">Copy</button>
           </div>
           <div class="flex items-center gap-2">
@@ -735,14 +794,14 @@
           <div id="detectedWalletsList" class="space-y-2"></div>
         </div>
 
-        <!-- WalletConnect v2 (QR + Reown Project ID + Live Pairing URI) -->
+        <!-- WalletConnect v2 (QR + Live Pairing URI) -->
         <div class="rounded-xl bg-[#0d111a] border border-gray-800 overflow-hidden">
           <button onclick="handleWalletConnectCardClick()" class="w-full p-3 hover:bg-[#151c2c] transition flex items-center justify-between text-left">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-lg shrink-0">🔗</div>
               <div class="min-w-0">
                 <div class="text-xs font-extrabold text-white truncate">WalletConnect v2</div>
-                <div class="text-[11px] text-gray-400 truncate" id="subWc">ID: 58ad2600...28d50 • Scan QR or pair mobile wallet</div>
+                <div class="text-[11px] text-gray-400 truncate" id="subWc">Scan QR or pair mobile wallet</div>
               </div>
             </div>
             <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2" id="wcActionBadge">Connect</span>
@@ -760,42 +819,21 @@
             </div>
 
             <div id="wcPairingActions" class="hidden space-y-2">
-              <div class="flex items-center justify-between gap-2 bg-[#131823] rounded-lg px-2.5 py-1.5 border border-gray-800">
-                <span id="wcUriPreview" class="text-[10px] font-mono text-gray-300 truncate">wc:...</span>
-                <button onclick="copyWcPairingUri()" class="text-[10px] font-bold text-cyan-400 shrink-0" id="copyWcUriBtn">Copy URI</button>
+              <div class="text-[10px] text-gray-400 font-semibold">WalletConnect URL (wc:...):</div>
+              <div class="flex items-center justify-between gap-2 bg-[#131823] rounded-lg px-2.5 py-2 border border-gray-800">
+                <span id="wcUriPreview" class="text-[10px] font-mono text-cyan-300 truncate select-all">wc:...</span>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button onclick="copyWcPairingUri()" class="px-2 py-1 rounded bg-cyan-500/15 border border-cyan-500/40 text-[10px] font-bold text-cyan-300" id="copyWcUriBtn">Copy WC URL</button>
+                  <a id="wcDirectOpenLink" href="#" class="hidden px-2 py-1 rounded bg-emerald-500 text-black text-[10px] font-extrabold">Open WC</a>
+                </div>
               </div>
               <div id="wcQuickDeepLinks" class="grid grid-cols-2 gap-1.5"></div>
-            </div>
-
-            <div class="pt-2 border-t border-gray-800 space-y-1.5">
-              <div class="text-[10px] text-gray-400">Reown / WalletConnect Project ID:</div>
-              <div class="flex gap-1.5">
-                <input id="wcProjectIdInput" value="58ad26007a1212b3406b582c93228d50" placeholder="WalletConnect Project ID" class="flex-1 bg-[#131823] border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-white" />
-                <button onclick="saveWcProjectIdOnly()" class="px-2.5 py-1.5 rounded-lg bg-[#131823] border border-gray-700 text-gray-200 font-bold text-[11px]">Save ID</button>
-                <button onclick="saveAndLaunchWalletConnect()" class="px-2.5 py-1.5 rounded-lg bg-sky-500 text-black font-bold text-[11px]">Connect</button>
-              </div>
             </div>
           </div>
         </div>
 
         <!-- Dynamic All-Wallets Catalog (with Mobile Direct Open App + Desktop/Iframe QR & Pair Flow) -->
         <div id="walletCatalogList" class="space-y-2 max-h-80 overflow-y-auto pr-0.5"></div>
-
-        <div class="flex items-center gap-2 text-[11px] text-gray-500 pt-1">
-          <div class="h-px bg-gray-800 flex-1"></div>
-          <span>or Watch-Only / Owner</span>
-          <div class="h-px bg-gray-800 flex-1"></div>
-        </div>
-
-        <div class="space-y-2">
-          <div class="flex gap-2">
-            <input id="manualWalletInput" placeholder="Paste 0x... EVM Address (Watch-Only)" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
-            <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
-          </div>
-          <button onclick="connectOwnerWalletDirect()" class="w-full py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
-            👑 Connect App Owner Wallet (0x3f48...1556 • 0 Listing Fee)
-          </button>
-        </div>
       </div>
     </div>
   </div>

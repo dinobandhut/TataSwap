@@ -31,11 +31,11 @@ class DexRepository(
     private val _currentNetwork = MutableStateFlow(SupportedNetworks.first())
     val currentNetwork: StateFlow<BlockchainNetwork> = _currentNetwork.asStateFlow()
 
-    // Connected Wallet Info
-    private val _connectedWallet = MutableStateFlow<String?>("0x71C...a49B")
+    // Connected Wallet Info (starts disconnected until user connects a real Web3 wallet)
+    private val _connectedWallet = MutableStateFlow<String?>(null)
     val connectedWallet: StateFlow<String?> = _connectedWallet.asStateFlow()
 
-    private val _walletNativeBalance = MutableStateFlow(3.4520) // in BNB / ETH
+    private val _walletNativeBalance = MutableStateFlow(0.0) // synced from live RPC
     val walletNativeBalance: StateFlow<Double> = _walletNativeBalance.asStateFlow()
 
     private val _currentBlockNumber = MutableStateFlow(42189034L)
@@ -78,6 +78,8 @@ class DexRepository(
 
     fun connectWallet(address: String) {
         _connectedWallet.value = address.trim()
+        _walletNativeBalance.value = 0.0
+        _tokens.update { list -> list.map { it.copy(userBalance = 0.0) } }
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             refreshWalletBalance()
         }
@@ -86,6 +88,8 @@ class DexRepository(
     fun disconnectWallet() {
         _connectedWallet.value = null
         _walletNativeBalance.value = 0.0
+        _tokens.update { list -> list.map { it.copy(userBalance = 0.0) } }
+        _pools.update { list -> list.map { it.copy(userLpBalance = 0.0, userSharePercent = 0.0) } }
     }
 
     suspend fun refreshNetworkStatus() {
@@ -426,7 +430,7 @@ class DexRepository(
             liquidityUsd = 0.0,
             isVerified = isOwner,
             isCustom = true,
-            userBalance = 1000.0, // Initial creator allocation for testing
+            userBalance = 0.0,
             contractBytecodeExists = true,
             totalSupply = totalSupply
         )
@@ -635,7 +639,7 @@ class DexRepository(
             volume24h = 1845000.0,
             liquidityUsd = 6840000.0,
             isVerified = true,
-            userBalance = 3.4520,
+            userBalance = 0.0,
             totalSupply = "147,580,000"
         ),
         Token(
@@ -648,7 +652,7 @@ class DexRepository(
             volume24h = 3250000.0,
             liquidityUsd = 8450000.0,
             isVerified = true,
-            userBalance = 150.00, // Sufficient for paying 5 USDT listing fee!
+            userBalance = 0.0,
             totalSupply = "5,400,000,000"
         ),
         Token(
@@ -661,7 +665,7 @@ class DexRepository(
             volume24h = 890000.0,
             liquidityUsd = 2450000.0,
             isVerified = true,
-            userBalance = 350.0,
+            userBalance = 0.0,
             totalSupply = "100,000,000"
         ),
         Token(
@@ -674,7 +678,7 @@ class DexRepository(
             volume24h = 740000.0,
             liquidityUsd = 3100000.0,
             isVerified = true,
-            userBalance = 45.2,
+            userBalance = 0.0,
             totalSupply = "380,000,000"
         ),
         Token(
@@ -687,7 +691,7 @@ class DexRepository(
             volume24h = 2450000.0,
             liquidityUsd = 5200000.0,
             isVerified = true,
-            userBalance = 0.045,
+            userBalance = 0.0,
             totalSupply = "54,200"
         ),
         Token(
@@ -700,7 +704,7 @@ class DexRepository(
             volume24h = 1620000.0,
             liquidityUsd = 4100000.0,
             isVerified = true,
-            userBalance = 0.85,
+            userBalance = 0.0,
             totalSupply = "120,400,000"
         ),
         Token(
@@ -713,7 +717,7 @@ class DexRepository(
             volume24h = 680000.0,
             liquidityUsd = 2150000.0,
             isVerified = true,
-            userBalance = 120.0,
+            userBalance = 0.0,
             totalSupply = "10,000,000,000"
         ),
         Token(
@@ -726,7 +730,7 @@ class DexRepository(
             volume24h = 520000.0,
             liquidityUsd = 1640000.0,
             isVerified = true,
-            userBalance = 85.0,
+            userBalance = 0.0,
             totalSupply = "2,100,000,000"
         )
     )
@@ -750,8 +754,8 @@ class DexRepository(
                 tvlUsd = 5308250.0,
                 volume24h = 1850000.0,
                 feeAprPercent = 18.5,
-                userLpBalance = 15.4,
-                userSharePercent = 0.36
+                userLpBalance = 0.0,
+                userSharePercent = 0.0
             ),
             LiquidityPool(
                 id = "TATA-BNB",
@@ -763,8 +767,8 @@ class DexRepository(
                 tvlUsd = 2465000.0,
                 volume24h = 720000.0,
                 feeAprPercent = 38.2,
-                userLpBalance = 320.0,
-                userSharePercent = 1.25
+                userLpBalance = 0.0,
+                userSharePercent = 0.0
             ),
             LiquidityPool(
                 id = "CAKE-BNB",
@@ -795,41 +799,5 @@ class DexRepository(
         )
     }
 
-    private fun getInitialTransactions(): List<TransactionRecord> = listOf(
-        TransactionRecord(
-            id = "tx-1",
-            txHash = "0x8fa9280d463ef1b98a0d92384a28938cde9012a83928471baf8921a938210394",
-            type = TransactionType.SWAP,
-            title = "Swap 0.5 BNB for 312.25 USDT",
-            description = "Route: BNB -> USDT (Rate: 1 BNB = 624.50 USDT)",
-            tokenInSymbol = "BNB",
-            tokenOutSymbol = "USDT",
-            amountIn = 0.5,
-            amountOut = 312.25,
-            timestampMs = System.currentTimeMillis() - 180000,
-            status = "Confirmed"
-        ),
-        TransactionRecord(
-            id = "tx-2",
-            txHash = "0x2c109438adfe902348a280918cfae81290384102948190283912a8491039aef2",
-            type = TransactionType.TOKEN_LISTING,
-            title = "Permissionless Listing: TATA (TataSwap Token)",
-            description = "5.00 USDT listing fee collected to 0x3f48248FFE235a5205d1D781fB6c852c71fc1556",
-            tokenInSymbol = "USDT",
-            amountIn = 5.0,
-            timestampMs = System.currentTimeMillis() - 3600000,
-            status = "Confirmed"
-        ),
-        TransactionRecord(
-            id = "tx-3",
-            txHash = "0x4e2908123908fba9012839012849018249012849012849102839102849102849",
-            type = TransactionType.ADD_LIQUIDITY,
-            title = "Add Liquidity BNB-USDT",
-            description = "Supplied 1.0 BNB and 624.50 USDT to pool",
-            amountIn = 1.0,
-            amountOut = 624.50,
-            timestampMs = System.currentTimeMillis() - 14400000,
-            status = "Confirmed"
-        )
-    )
+    private fun getInitialTransactions(): List<TransactionRecord> = emptyList()
 }

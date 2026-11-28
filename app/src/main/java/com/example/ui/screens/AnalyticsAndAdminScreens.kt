@@ -23,6 +23,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DexProtocolStats
@@ -171,6 +173,12 @@ fun AnalyticsScreen(
 fun AdminDashboardScreen(
     stats: DexProtocolStats,
     tokens: List<Token>,
+    connectedWallet: String?,
+    isAdminAuthenticated: Boolean,
+    adminAuthError: String?,
+    onAdminLogin: (String, String) -> Unit,
+    onAdminLogout: () -> Unit,
+    onConnectWallet: (String) -> Unit,
     onUpdateListingFee: (Double) -> Unit,
     onUpdateFeeReceiver: (String) -> Unit,
     onToggleEmergencyPause: () -> Unit,
@@ -182,6 +190,164 @@ fun AdminDashboardScreen(
     var newFeeStr by remember { mutableStateOf("${stats.officialListingFeeUsdt}") }
     var newReceiverStr by remember { mutableStateOf(stats.officialFeeReceiverWallet) }
 
+    // Login state (both email & password hidden/masked by default, never prefilled or exposed)
+    var adminEmailInput by remember { mutableStateOf("") }
+    var adminPasswordInput by remember { mutableStateOf("") }
+    var showAdminEmail by remember { mutableStateOf(false) }
+    var showAdminPassword by remember { mutableStateOf(false) }
+
+    // Moved Owner & Watch-Only wallet controls state
+    var watchOnlyAddress by remember { mutableStateOf("") }
+    var watchOnlyError by remember { mutableStateOf<String?>(null) }
+
+    if (!isAdminAuthenticated) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DarkBackground)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BnbGold.copy(alpha = 0.6f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 460.dp)
+                    .testTag("admin_login_card")
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(BnbGold.copy(alpha = 0.16f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = "Admin Lock", tint = BnbGold)
+                        }
+                        Column {
+                            Text(
+                                text = "Admin Dashboard Login",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Authorized administrator credentials required",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = adminEmailInput,
+                        onValueChange = { adminEmailInput = it },
+                        label = { Text("Admin Email") },
+                        placeholder = { Text("Enter admin email") },
+                        singleLine = true,
+                        visualTransformation = if (showAdminEmail) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { showAdminEmail = !showAdminEmail },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
+                                Icon(
+                                    imageVector = if (showAdminEmail) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showAdminEmail) "Hide Email" else "Show Email",
+                                    tint = TextSecondary
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BnbGold,
+                            unfocusedBorderColor = DarkSurfaceBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_email_input")
+                    )
+
+                    OutlinedTextField(
+                        value = adminPasswordInput,
+                        onValueChange = { adminPasswordInput = it },
+                        label = { Text("Admin Password") },
+                        placeholder = { Text("Enter admin password") },
+                        singleLine = true,
+                        visualTransformation = if (showAdminPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { showAdminPassword = !showAdminPassword },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
+                                Icon(
+                                    imageVector = if (showAdminPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showAdminPassword) "Hide Password" else "Show Password",
+                                    tint = TextSecondary
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BnbGold,
+                            unfocusedBorderColor = DarkSurfaceBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_password_input")
+                    )
+
+                    if (adminAuthError != null) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = CryptoRedBg,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CryptoRed.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = adminAuthError,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CryptoRed,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { onAdminLogin(adminEmailInput, adminPasswordInput) },
+                        colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("admin_login_button")
+                    ) {
+                        Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Login to Admin Dashboard", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        return
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -191,14 +357,40 @@ fun AdminDashboardScreen(
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = BnbGold)
-                Text("DEX Admin Dashboard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = BnbGold)
+                    Text("DEX Admin Dashboard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+                OutlinedButton(
+                    onClick = {
+                        adminEmailInput = ""
+                        adminPasswordInput = ""
+                        onAdminLogout()
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CryptoRed),
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("admin_logout_button")
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = "Lock Admin", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Lock", fontSize = 12.sp)
+                }
             }
-            Text("Owner controls for listing fee parameters, contract safety, and token verification.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Text("Owner controls for listing fee parameters, contract safety, wallet access, and token verification.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
 
-        // DEX Owner Identity Card
+        // DEX Owner Identity & WalletConnect Project ID Card
         item {
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -239,7 +431,10 @@ fun AdminDashboardScreen(
                                 maxLines = 1,
                                 modifier = Modifier.weight(1f)
                             )
-                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(stats.officialFeeReceiverWallet)) }) {
+                            IconButton(
+                                onClick = { clipboardManager.setText(AnnotatedString(stats.officialFeeReceiverWallet)) },
+                                modifier = Modifier.minimumInteractiveComponentSize()
+                            ) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = NeonCyan, modifier = Modifier.size(18.dp))
                             }
                         }
@@ -259,7 +454,7 @@ fun AdminDashboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Reown / WalletConnect Project ID", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            Text("WalletConnect Project ID", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             Text(
                                 text = com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID,
                                 style = MaterialTheme.typography.bodySmall,
@@ -271,10 +466,114 @@ fun AdminDashboardScreen(
                         IconButton(
                             onClick = {
                                 clipboardManager.setText(AnnotatedString(com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID))
-                            }
+                            },
+                            modifier = Modifier.minimumInteractiveComponentSize()
                         ) {
                             Icon(Icons.Default.ContentCopy, contentDescription = "Copy WalletConnect Project ID", tint = CryptoGreen, modifier = Modifier.size(18.dp))
                         }
+                    }
+                }
+            }
+        }
+
+        // Moved Admin Wallet & Watch-Only Controls Card
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.55f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Admin Wallet & Watch-Only Controls", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    if (!connectedWallet.isNullOrBlank()) {
+                        Text(
+                            text = "Active Session Wallet: $connectedWallet",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = NeonCyan
+                        )
+                    }
+
+                    // App Owner Wallet Option (0 Listing Fee)
+                    Surface(
+                        onClick = { onConnectWallet("0x3f48248FFE235a5205d1D781fB6c852c71fc1556") },
+                        shape = RoundedCornerShape(12.dp),
+                        color = CryptoGreenBg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("owner_wallet_button")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(CryptoGreen),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.VerifiedUser, contentDescription = "Owner", tint = Color.Black, modifier = Modifier.size(18.dp))
+                            }
+                            Column {
+                                Text("App Owner Wallet (0 Fee)", fontWeight = FontWeight.Bold, color = CryptoGreen, fontSize = 13.sp)
+                                Text("0x3f48...1556 • Free Token Listing", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            }
+                        }
+                    }
+
+                    // Watch-Only / Paste 0x EVM Address
+                    OutlinedTextField(
+                        value = watchOnlyAddress,
+                        onValueChange = {
+                            watchOnlyAddress = it
+                            watchOnlyError = null
+                        },
+                        label = { Text("Watch-Only / Paste 0x EVM Address") },
+                        placeholder = { Text("0x...") },
+                        singleLine = true,
+                        isError = watchOnlyError != null,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BnbGold,
+                            unfocusedBorderColor = DarkSurfaceBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("wallet_address_input")
+                    )
+
+                    if (watchOnlyError != null) {
+                        Text(
+                            text = watchOnlyError!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = CryptoRed
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            val clean = watchOnlyAddress.trim()
+                            val isValidEvm = clean.startsWith("0x") && clean.length == 42 &&
+                                clean.drop(2).all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }
+                            if (isValidEvm) {
+                                onConnectWallet(clean)
+                            } else {
+                                watchOnlyError = "Enter a valid 42-char 0x EVM wallet address."
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("connect_custom_wallet_button")
+                    ) {
+                        Text("Connect & Sync Live Balance", fontWeight = FontWeight.Bold)
                     }
                 }
             }

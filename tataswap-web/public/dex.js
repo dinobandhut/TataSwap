@@ -275,7 +275,10 @@ function openPage(pageId) {
   }
   if (pageId === "portfolio") renderPortfolioHoldings();
   if (pageId === "history") renderLocalHistory();
-  if (pageId === "admin") loadContractConfig();
+  if (pageId === "admin") {
+    renderAdminAuthGate();
+    if (adminAuthenticated) loadContractConfig();
+  }
 }
 
 async function rpcRequest(method, params = []) {
@@ -583,7 +586,9 @@ async function generateQrDataUrl(text) {
   if (qrDataUrlCache.has(text)) return qrDataUrlCache.get(text);
   try {
     if (!qrLibPromise) {
-      qrLibPromise = import("https://esm.sh/qrcode@1.5.4");
+      qrLibPromise = import("https://esm.sh/qrcode@1.5.4").catch(() =>
+        import("https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm")
+      );
     }
     const mod = await qrLibPromise;
     const qrApi = mod.default || mod;
@@ -625,6 +630,7 @@ async function hydrateWcPanelQr() {
   const qrCaption = document.getElementById("wcQrCaption");
   const pairingActions = document.getElementById("wcPairingActions");
   const uriPreview = document.getElementById("wcUriPreview");
+  const directOpenLink = document.getElementById("wcDirectOpenLink");
   const quickLinks = document.getElementById("wcQuickDeepLinks");
   if (!qrBox || !qrImg) return;
 
@@ -644,6 +650,10 @@ async function hydrateWcPanelQr() {
     if (wcPairingUri) {
       pairingActions.classList.remove("hidden");
       uriPreview.innerText = wcPairingUri;
+      if (directOpenLink) {
+        directOpenLink.href = wcPairingUri;
+        directOpenLink.classList.remove("hidden");
+      }
       const wcWallets = WALLET_CATALOG.filter(w => typeof w.wcDeepLink === "function");
       quickLinks.innerHTML = wcWallets.map(w => `
         <a href="${escapeHtml(w.wcDeepLink(wcPairingUri))}" target="_blank" rel="noopener noreferrer"
@@ -652,8 +662,20 @@ async function hydrateWcPanelQr() {
           <span class="text-cyan-400">&nearr;</span>
         </a>
       `).join("");
+    } else if (wcConnecting) {
+      pairingActions.classList.remove("hidden");
+      uriPreview.innerText = "Generating live wc:... WalletConnect URL...";
+      if (directOpenLink) {
+        directOpenLink.href = "#";
+        directOpenLink.classList.add("hidden");
+      }
+      quickLinks.innerHTML = "";
     } else {
       pairingActions.classList.add("hidden");
+      if (directOpenLink) {
+        directOpenLink.href = "#";
+        directOpenLink.classList.add("hidden");
+      }
       quickLinks.innerHTML = "";
     }
   }
@@ -866,6 +888,12 @@ function renderWalletCatalogList() {
             </a>
           ` : ""}
         </div>
+        ${wcPairingUri ? `
+          <div class="flex items-center justify-between gap-2 bg-[#131823] rounded-lg px-2.5 py-1.5 border border-gray-800">
+            <span class="text-[10px] font-mono text-cyan-300 truncate select-all">${escapeHtml(wcPairingUri)}</span>
+            <button onclick="copyWcPairingUri()" class="text-[10px] font-bold text-cyan-400 shrink-0">Copy WC</button>
+          </div>
+        ` : ""}
       </div>
     ` : "";
 
@@ -980,7 +1008,7 @@ async function copyWcPairingUri() {
     const btn = document.getElementById("copyWcUriBtn");
     if (btn) {
       btn.innerText = "Copied!";
-      setTimeout(() => { btn.innerText = "Copy URI"; }, 1800);
+      setTimeout(() => { btn.innerText = "Copy WC URL"; }, 1800);
     }
   } catch {}
 }
@@ -1042,7 +1070,9 @@ async function startWalletConnectPairing(forceNew = false) {
       wcActiveProviderInstance = null;
       wcPairingUri = "";
     }
-    const { EthereumProvider } = await import("https://esm.sh/@walletconnect/ethereum-provider@2.26.1");
+    const { EthereumProvider } = await import("https://esm.sh/@walletconnect/ethereum-provider@2.26.1").catch(() =>
+      import("https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.26.1/+esm")
+    );
     const rpcMap = {};
     for (const net of Object.values(NETWORKS)) {
       rpcMap[net.chainId] = net.rpc;
@@ -1167,12 +1197,23 @@ async function connectInjectedWallet() {
   connectWeb3Wallet();
 }
 
+function setAdminWalletFeedback(msg, isError = false) {
+  const el = document.getElementById("adminWalletFeedback");
+  if (!el) return;
+  el.innerText = msg;
+  el.className = `text-xs font-semibold ${isError ? "text-red-400" : "text-emerald-400"}`;
+  el.classList.remove("hidden");
+}
+
 async function connectManualAddress() {
   clearWalletModalError();
+  if (!adminAuthenticated) {
+    return setAdminWalletFeedback("Admin login required.", true);
+  }
   const raw = (document.getElementById("manualWalletInput")?.value || "").trim();
   const isEvmAddr = /^0x[a-fA-F0-9]{40}$/.test(raw);
   if (!isEvmAddr) {
-    return setWalletModalError("Please enter a valid 0x EVM wallet address.");
+    return setAdminWalletFeedback("Please enter a valid 0x EVM wallet address.", true);
   }
   activeProvider = null;
   walletAddress = raw;
@@ -1183,12 +1224,15 @@ async function connectManualAddress() {
   localStorage.setItem("tataswap_wallet_mode", walletMode);
   localStorage.setItem("tataswap_wallet_label", walletProviderLabel);
   updateWalletHeaderUi();
-  closeWalletModal();
+  setAdminWalletFeedback(`Connected Watch-Only: ${raw.slice(0, 6)}...${raw.slice(-4)}`);
   await refreshBalance();
 }
 
 async function connectOwnerWalletDirect() {
   clearWalletModalError();
+  if (!adminAuthenticated) {
+    return setAdminWalletFeedback("Admin login required.", true);
+  }
   activeProvider = null;
   walletAddress = OFFICIAL_OWNER_WALLET;
   walletMode = "address";
@@ -1198,7 +1242,7 @@ async function connectOwnerWalletDirect() {
   localStorage.setItem("tataswap_wallet_mode", walletMode);
   localStorage.setItem("tataswap_wallet_label", walletProviderLabel);
   updateWalletHeaderUi();
-  closeWalletModal();
+  setAdminWalletFeedback("Connected App Owner Wallet (0 Fee).");
   await refreshBalance();
 }
 
@@ -1468,7 +1512,109 @@ function loadContractConfig() {
   if (wcEl) wcEl.value = wcProjectIdCache || DEFAULT_WC_PROJECT_ID;
 }
 
+const ADMIN_AUTH_SALT = "tataswap-admin-v1:";
+const ADMIN_EMAIL_SHA256 = "d634449c49a098e5d985a627942ba762beca4a6900256199babfab6097968b1d";
+const ADMIN_PASSWORD_SHA256 = "eda84c27a20b491878b76df2d69f184a9384590a4737262b409a31e04c098754";
+let adminSessionToken = sessionStorage.getItem("tataswap_admin_token") || "";
+let adminAuthenticated = Boolean(adminSessionToken);
+
+async function sha256HexBrowser(input) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function toggleAdminFieldVisibility(inputId, btnId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (!input) return;
+  const hidden = input.type === "password";
+  input.type = hidden ? "text" : "password";
+  if (btn) btn.innerText = hidden ? "Hide" : "Show";
+}
+
+function renderAdminAuthGate() {
+  const gate = document.getElementById("adminLoginGate");
+  const content = document.getElementById("adminDashboardContent");
+  if (gate) gate.classList.toggle("hidden", adminAuthenticated);
+  if (content) content.classList.toggle("hidden", !adminAuthenticated);
+}
+
+async function loginAdminDashboard() {
+  const emailEl = document.getElementById("adminEmailInput");
+  const passEl = document.getElementById("adminPasswordInput");
+  const errEl = document.getElementById("adminLoginError");
+  const email = (emailEl?.value || "").trim().toLowerCase();
+  const password = passEl?.value || "";
+
+  if (errEl) {
+    errEl.classList.add("hidden");
+    errEl.innerText = "";
+  }
+
+  let verified = false;
+  let token = "";
+  try {
+    const res = await fetch(`${BACKEND_API_BASE}/api/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.authenticated) {
+        verified = true;
+        token = data.token || "verified";
+      }
+    } else if (res.status === 401) {
+      verified = false;
+    } else {
+      throw new Error("Fallback local hash check");
+    }
+  } catch {
+    if (window.crypto?.subtle) {
+      const eHash = await sha256HexBrowser(ADMIN_AUTH_SALT + email);
+      const pHash = await sha256HexBrowser(ADMIN_AUTH_SALT + password);
+      verified = eHash === ADMIN_EMAIL_SHA256 && pHash === ADMIN_PASSWORD_SHA256;
+      if (verified) token = "local_" + Date.now();
+    }
+  }
+
+  if (verified) {
+    adminAuthenticated = true;
+    adminSessionToken = token;
+    try { sessionStorage.setItem("tataswap_admin_token", token); } catch {}
+    if (emailEl) { emailEl.value = ""; emailEl.type = "password"; }
+    if (passEl) { passEl.value = ""; passEl.type = "password"; }
+    renderAdminAuthGate();
+    loadContractConfig();
+  } else {
+    adminAuthenticated = false;
+    adminSessionToken = "";
+    try { sessionStorage.removeItem("tataswap_admin_token"); } catch {}
+    if (errEl) {
+      errEl.innerText = "Invalid admin email or password.";
+      errEl.classList.remove("hidden");
+    }
+  }
+}
+
+async function logoutAdminDashboard() {
+  const token = adminSessionToken;
+  adminAuthenticated = false;
+  adminSessionToken = "";
+  try { sessionStorage.removeItem("tataswap_admin_token"); } catch {}
+  renderAdminAuthGate();
+  if (token) {
+    fetch(`${BACKEND_API_BASE}/api/admin/logout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ token })
+    }).catch(() => {});
+  }
+}
+
 function saveContractConfig() {
+  if (!adminAuthenticated) return;
   const router = (document.getElementById("cfgRouterAddr")?.value || "").trim();
   const listing = (document.getElementById("cfgListingAddr")?.value || "").trim();
   localStorage.setItem("tataswap_router_addr", router);
@@ -1481,16 +1627,15 @@ function saveContractConfig() {
 }
 
 function saveAdminWcProjectId() {
+  if (!adminAuthenticated) return;
   const raw = (document.getElementById("cfgWcProjectId")?.value || "").trim();
   const validId = raw.length >= 16 ? raw : DEFAULT_WC_PROJECT_ID;
   wcProjectIdCache = validId;
   try { localStorage.setItem("tataswap_wc_project_id", validId); } catch {}
   const cfgInput = document.getElementById("cfgWcProjectId");
-  const modalInput = document.getElementById("wcProjectIdInput");
   const subWc = document.getElementById("subWc");
   if (cfgInput) cfgInput.value = validId;
-  if (modalInput) modalInput.value = validId;
-  if (subWc) subWc.innerText = `ID: ${validId.slice(0, 8)}...${validId.slice(-5)} • Scan QR or pair mobile wallet`;
+  if (subWc) subWc.innerText = "Scan QR or pair mobile wallet";
   const msg = document.getElementById("cfgWcSaveMsg");
   if (msg) {
     msg.classList.remove("hidden");
@@ -1499,6 +1644,7 @@ function saveAdminWcProjectId() {
 }
 
 function copyAdminWcProjectId() {
+  if (!adminAuthenticated) return;
   const val = (document.getElementById("cfgWcProjectId")?.value || wcProjectIdCache || DEFAULT_WC_PROJECT_ID).trim();
   if (navigator.clipboard) {
     navigator.clipboard.writeText(val).catch(() => {});

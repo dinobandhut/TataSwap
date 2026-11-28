@@ -61,6 +61,8 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
     val selectedPool by viewModel.selectedPool.collectAsStateWithLifecycle()
     val showWalletModal by viewModel.showWalletModal.collectAsStateWithLifecycle()
     val showNetworkModal by viewModel.showNetworkModal.collectAsStateWithLifecycle()
+    val isAdminAuthenticated by viewModel.isAdminAuthenticated.collectAsStateWithLifecycle()
+    val adminAuthError by viewModel.adminAuthError.collectAsStateWithLifecycle()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -353,6 +355,12 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
                     DexScreen.ADMIN_DASHBOARD -> AdminDashboardScreen(
                         stats = protocolStats,
                         tokens = tokens,
+                        connectedWallet = connectedWallet,
+                        isAdminAuthenticated = isAdminAuthenticated,
+                        adminAuthError = adminAuthError,
+                        onAdminLogin = { email, password -> viewModel.loginAdmin(email, password) },
+                        onAdminLogout = { viewModel.logoutAdmin() },
+                        onConnectWallet = { viewModel.connectWalletWithAddress(it) },
                         onUpdateListingFee = { viewModel.updateOfficialListingFee(it) },
                         onUpdateFeeReceiver = { viewModel.updateFeeReceiver(it) },
                         onToggleEmergencyPause = { viewModel.toggleEmergencyPause() },

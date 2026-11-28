@@ -286,9 +286,8 @@ fun WalletConnectDialog(
     onDisconnect: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var inputAddress by remember { mutableStateOf("") }
-    var addressError by remember { mutableStateOf<String?>(null) }
     var showMoreWallets by remember { mutableStateOf(false) }
+    var showWcQrPanel by remember { mutableStateOf(false) }
     var forcePicker by remember { mutableStateOf(false) }
     var copiedAddress by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
@@ -512,50 +511,36 @@ fun WalletConnectDialog(
                     )
 
                     WalletOptionRow(
+                        emoji = "📷",
+                        badgeColor = NeonCyan,
+                        borderColor = NeonCyan.copy(alpha = 0.6f),
+                        title = "WalletConnect QR & WC URL",
+                        subtitle = if (showWcQrPanel) "Hide scannable QR code & wc: pairing URL" else "Show QR code & copyable wc:... pairing URL",
+                        actionColor = NeonCyan,
+                        actionLabel = if (showWcQrPanel) "Hide QR" else "Show QR",
+                        onClick = { showWcQrPanel = !showWcQrPanel }
+                    )
+
+                    if (showWcQrPanel) {
+                        WalletConnectQrPanel(
+                            onConnectedAddress = { connectedAddr ->
+                                forcePicker = false
+                                showWcQrPanel = false
+                                onConnectCustom(connectedAddr)
+                            }
+                        )
+                    }
+
+                    WalletOptionRow(
                         emoji = "🔗",
                         badgeColor = Color(0xFF3B99FC),
                         borderColor = Color(0xFF3B99FC).copy(alpha = 0.55f),
                         title = "WalletConnect & More Wallets",
-                        subtitle = if (showMoreWallets) "Hide OKX, Bitget, Phantom & SafePal" else "ID: 58ad2600...28d50 • OKX, Bitget, Phantom, SafePal",
+                        subtitle = if (showMoreWallets) "Hide OKX, Bitget, Phantom & SafePal" else "OKX, Bitget, Phantom, SafePal & Rainbow",
                         actionColor = Color(0xFF3B99FC),
                         actionLabel = if (showMoreWallets) "Hide" else "Select",
                         onClick = { showMoreWallets = !showMoreWallets }
                     )
-
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = DarkSurfaceElevated,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("WalletConnect Project ID", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                Text(
-                                    text = com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = NeonCyan,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID))
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Project ID", tint = NeonCyan, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
 
                     if (showMoreWallets) {
                         Column(
@@ -621,90 +606,6 @@ fun WalletConnectDialog(
                                 }
                             )
                         }
-                    }
-
-                    // App Owner Wallet Option (0 Listing Fee)
-                    Surface(
-                        onClick = {
-                            forcePicker = false
-                            onConnectCustom("0x3f48248FFE235a5205d1D781fB6c852c71fc1556")
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = CryptoGreenBg,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.6f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("owner_wallet_button")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(CryptoGreen),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.VerifiedUser, contentDescription = "Owner", tint = Color.Black, modifier = Modifier.size(18.dp))
-                            }
-                            Column {
-                                Text("App Owner Wallet (0 Fee)", fontWeight = FontWeight.Bold, color = CryptoGreen, fontSize = 13.sp)
-                                Text("0x3f48...1556 • Free Token Listing", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                            }
-                        }
-                    }
-
-                    // Watch-Only / Direct address input
-                    OutlinedTextField(
-                        value = inputAddress,
-                        onValueChange = {
-                            inputAddress = it
-                            addressError = null
-                        },
-                        label = { Text("Watch-Only / Paste 0x EVM Address") },
-                        placeholder = { Text("0x...") },
-                        singleLine = true,
-                        isError = addressError != null,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = BnbGold,
-                            unfocusedBorderColor = DarkSurfaceBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("wallet_address_input")
-                    )
-
-                    if (addressError != null) {
-                        Text(
-                            text = addressError!!,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = CryptoRed
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            val clean = inputAddress.trim()
-                            val isValidEvm = clean.startsWith("0x") && clean.length == 42
-                            if (isValidEvm) {
-                                forcePicker = false
-                                onConnectCustom(clean)
-                            } else {
-                                addressError = "Enter a valid 42-char 0x EVM wallet address."
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("connect_custom_wallet_button")
-                    ) {
-                        Text("Connect & Sync Live Balance", fontWeight = FontWeight.Bold)
                     }
                 }
             }

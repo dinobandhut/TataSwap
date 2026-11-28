@@ -106,6 +106,13 @@ class DexViewModel(
     private val _showNetworkModal = MutableStateFlow(false)
     val showNetworkModal: StateFlow<Boolean> = _showNetworkModal.asStateFlow()
 
+    // Admin Dashboard Login State (SHA-256 verified, no plaintext credentials)
+    private val _isAdminAuthenticated = MutableStateFlow(false)
+    val isAdminAuthenticated: StateFlow<Boolean> = _isAdminAuthenticated.asStateFlow()
+
+    private val _adminAuthError = MutableStateFlow<String?>(null)
+    val adminAuthError: StateFlow<String?> = _adminAuthError.asStateFlow()
+
     // Exposed repository flows
     val currentNetwork: StateFlow<BlockchainNetwork> = repository.currentNetwork
     val connectedWallet: StateFlow<String?> = repository.connectedWallet
@@ -458,8 +465,50 @@ class DexViewModel(
         }
     }
 
-    // --- ADMIN DASHBOARD ACTIONS ---
+    // --- ADMIN AUTHENTICATION & DASHBOARD ACTIONS ---
+    fun loginAdmin(email: String, password: String) {
+        val normEmail = email.trim().lowercase()
+        val emailDigest = sha256Hex("tataswap-admin-v1:$normEmail")
+        val passDigest = sha256Hex("tataswap-admin-v1:$password")
+        val emailOk = constantTimeEquals(emailDigest, ADMIN_EMAIL_SHA256)
+        val passOk = constantTimeEquals(passDigest, ADMIN_PASSWORD_SHA256)
+        if (emailOk && passOk) {
+            _isAdminAuthenticated.value = true
+            _adminAuthError.value = null
+            viewModelScope.launch {
+                _snackbarMessage.emit("Admin Dashboard unlocked.")
+            }
+        } else {
+            _isAdminAuthenticated.value = false
+            _adminAuthError.value = "Invalid admin email or password."
+        }
+    }
+
+    fun logoutAdmin() {
+        _isAdminAuthenticated.value = false
+        _adminAuthError.value = null
+        viewModelScope.launch {
+            _snackbarMessage.emit("Admin Dashboard locked.")
+        }
+    }
+
+    private fun sha256Hex(input: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        return digest.digest(input.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
+    private fun constantTimeEquals(a: String, b: String): Boolean {
+        if (a.length != b.length) return false
+        var diff = 0
+        for (i in a.indices) {
+            diff = diff or (a[i].code xor b[i].code)
+        }
+        return diff == 0
+    }
+
     fun updateOfficialListingFee(newFee: Double) {
+        if (!_isAdminAuthenticated.value) return
         repository.updateOfficialListingFee(newFee)
         viewModelScope.launch {
             _snackbarMessage.emit("Listing Fee updated to $newFee USDT")
@@ -467,6 +516,7 @@ class DexViewModel(
     }
 
     fun updateFeeReceiver(newAddr: String) {
+        if (!_isAdminAuthenticated.value) return
         repository.updateFeeReceiverWallet(newAddr)
         viewModelScope.launch {
             _snackbarMessage.emit("Fee Receiver Wallet updated to $newAddr")
@@ -474,6 +524,7 @@ class DexViewModel(
     }
 
     fun toggleEmergencyPause() {
+        if (!_isAdminAuthenticated.value) return
         repository.toggleEmergencyPause()
         viewModelScope.launch {
             val status = if (repository.protocolStats.value.isEmergencyPaused) "PAUSED" else "ACTIVE"
@@ -482,10 +533,16 @@ class DexViewModel(
     }
 
     fun toggleTokenVerification(tokenAddress: String) {
+        if (!_isAdminAuthenticated.value) return
         repository.toggleTokenVerification(tokenAddress)
         viewModelScope.launch {
             _snackbarMessage.emit("Token verification status updated.")
         }
+    }
+
+    companion object {
+        private const val ADMIN_EMAIL_SHA256 = "d634449c49a098e5d985a627942ba762beca4a6900256199babfab6097968b1d"
+        private const val ADMIN_PASSWORD_SHA256 = "eda84c27a20b491878b76df2d69f184a9384590a4737262b409a31e04c098754"
     }
 
     // --- PORTFOLIO & REAL CRYPTO DEEP-LINK TRANSFERS ---

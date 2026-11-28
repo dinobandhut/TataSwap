@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -177,6 +178,51 @@ app.get('/api/config', (req, res) => {
     officialOwnerWallet: OFFICIAL_OWNER_WALLET,
     listingFeeUsdt: LISTING_FEE_USDT,
   });
+});
+
+// 1c. Admin Dashboard Authentication (Salted SHA-256 verification; no plaintext credentials stored)
+const ADMIN_AUTH_SALT = 'tataswap-admin-v1:';
+const ADMIN_EMAIL_SHA256 = (
+  process.env.ADMIN_EMAIL_SHA256 ||
+  (process.env.ADMIN_EMAIL
+    ? crypto.createHash('sha256').update(ADMIN_AUTH_SALT + process.env.ADMIN_EMAIL.trim().toLowerCase()).digest('hex')
+    : 'd634449c49a098e5d985a627942ba762beca4a6900256199babfab6097968b1d')
+).toLowerCase();
+const ADMIN_PASSWORD_SHA256 = (
+  process.env.ADMIN_PASSWORD_SHA256 ||
+  (process.env.ADMIN_PASSWORD
+    ? crypto.createHash('sha256').update(ADMIN_AUTH_SALT + process.env.ADMIN_PASSWORD).digest('hex')
+    : 'eda84c27a20b491878b76df2d69f184a9384590a4737262b409a31e04c098754')
+).toLowerCase();
+
+const adminSessions = new Map();
+
+function sha256SafeEqual(rawValue, expectedHex) {
+  const actualHex = crypto.createHash('sha256').update(ADMIN_AUTH_SALT + String(rawValue || '')).digest('hex');
+  const a = Buffer.from(actualHex, 'hex');
+  const b = Buffer.from(expectedHex, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+app.post('/api/admin/login', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const emailMatch = sha256SafeEqual(email, ADMIN_EMAIL_SHA256);
+  const passMatch = sha256SafeEqual(password, ADMIN_PASSWORD_SHA256);
+  if (!emailMatch || !passMatch) {
+    return res.status(401).json({ authenticated: false, error: 'Invalid admin email or password.' });
+  }
+  const token = crypto.randomBytes(24).toString('hex');
+  adminSessions.set(token, { createdAt: Date.now() });
+  res.json({ authenticated: true, token });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.replace(/^Bearer\s+/i, '').trim() || req.body?.token;
+  if (token) adminSessions.delete(token);
+  res.json({ authenticated: false });
 });
 
 // 2. Live On-Chain Token Contract Inspection via Mainnet RPCs

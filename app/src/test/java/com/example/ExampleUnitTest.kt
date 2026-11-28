@@ -45,12 +45,17 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun `verify app owner pays zero fee for token listing while regular user pays 5 USDT`() {
+    fun `verify no demo wallet is preconnected and owner pays zero fee while unfunded user fails`() {
         val repo = DexRepository()
-        val initialUsdt = repo.tokens.value.first { it.symbol == "USDT" }.userBalance
+        assertEquals(null, repo.connectedWallet.value)
+        assertEquals(0.0, repo.walletNativeBalance.value, 0.0001)
+        assertTrue(repo.tokens.value.all { it.userBalance == 0.0 })
+        assertTrue(repo.pools.value.all { it.userLpBalance == 0.0 })
+        assertTrue(repo.transactions.value.isEmpty())
+
         val initialFeesCollected = repo.protocolStats.value.totalListingFeesCollectedUsdt
 
-        // 1. Connect as App Owner (official owner/receiver address)
+        // 1. Connect as App Owner (official owner/receiver address) -> 0 fee, succeeds with 0 USDT
         repo.connectWallet("0x3f48248FFE235a5205d1D781fB6c852c71fc1556")
         assertTrue(repo.isAppOwnerWallet(repo.connectedWallet.value))
 
@@ -64,11 +69,10 @@ class ExampleUnitTest {
         )
         assertTrue(ownerRes.isSuccess)
         assertEquals(0.0, ownerRes.getOrThrow().amountIn ?: -1.0, 0.0001)
-        assertEquals(initialUsdt, repo.tokens.value.first { it.symbol == "USDT" }.userBalance, 0.0001)
         assertEquals(initialFeesCollected, repo.protocolStats.value.totalListingFeesCollectedUsdt, 0.0001)
         assertTrue(repo.tokens.value.first { it.symbol == "OWN" }.isVerified)
 
-        // 2. Connect as regular user -> pays 5 USDT fee
+        // 2. Connect as regular user with 0 USDT -> rejects due to 5 USDT fee requirement
         repo.connectWallet("0x2222222222222222222222222222222222222222")
         assertFalse(repo.isAppOwnerWallet(repo.connectedWallet.value))
 
@@ -80,10 +84,8 @@ class ExampleUnitTest {
             totalSupply = "1000000",
             initialPriceUsd = 1.0
         )
-        assertTrue(userRes.isSuccess)
-        assertEquals(5.0, userRes.getOrThrow().amountIn ?: -1.0, 0.0001)
-        assertEquals(initialUsdt - 5.0, repo.tokens.value.first { it.symbol == "USDT" }.userBalance, 0.0001)
-        assertEquals(initialFeesCollected + 5.0, repo.protocolStats.value.totalListingFeesCollectedUsdt, 0.0001)
+        assertTrue(userRes.isFailure)
+        assertEquals(initialFeesCollected, repo.protocolStats.value.totalListingFeesCollectedUsdt, 0.0001)
     }
 
     @Test

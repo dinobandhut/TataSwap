@@ -224,40 +224,65 @@ fun PortfolioScreen(
             Text("Token Holdings (Market Priced)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
         }
 
-        items(tokens.filter { it.userBalance > 0.0 && !it.symbol.equals(network.symbol, ignoreCase = true) }) { token ->
-            val holdingUsd = token.userBalance * token.priceUsd
-            Card(
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+        val nonZeroTokens = tokens.filter { it.userBalance > 0.0 && !it.symbol.equals(network.symbol, ignoreCase = true) }
+        if (nonZeroTokens.isEmpty()) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(BnbGold.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(token.symbol.take(2), fontWeight = FontWeight.Bold, color = BnbGold, fontSize = 12.sp)
-                        }
-                        Column {
-                            Text(token.symbol, fontWeight = FontWeight.Bold, color = TextPrimary)
-                            Text("${token.name} • $${"%.2f".format(token.priceUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                        }
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(30.dp))
+                        Text(
+                            text = if (connectedWallet == null) "Connect a Web3 wallet to view live balances" else "No token holdings found on ${network.name}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
                     }
+                }
+            }
+        } else {
+            items(nonZeroTokens) { token ->
+                val holdingUsd = token.userBalance * token.priceUsd
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(BnbGold.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(token.symbol.take(2), fontWeight = FontWeight.Bold, color = BnbGold, fontSize = 12.sp)
+                            }
+                            Column {
+                                Text(token.symbol, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("${token.name} • $${"%.2f".format(token.priceUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            }
+                        }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("${"%.4f".format(token.userBalance)} ${token.symbol}", fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("$${"%,.2f".format(holdingUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("${"%.4f".format(token.userBalance)} ${token.symbol}", fontWeight = FontWeight.Bold, color = TextPrimary)
+                            Text("$${"%,.2f".format(holdingUsd)}", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                        }
                     }
                 }
             }
