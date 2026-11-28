@@ -89,12 +89,13 @@ class ExampleUnitTest {
     @Test
     fun `verify wallet deep links and real crypto transfer URI builder`() {
         val repo = DexRepository()
-        assertTrue(repo.buildWalletDappDeepLink("metamask").startsWith("https://link.metamask.io/dapp/"))
-        assertTrue(repo.buildWalletDappDeepLink("trust").startsWith("https://link.trustwallet.com/open_url"))
+        assertTrue(repo.buildWalletDappDeepLink("metamask").startsWith("https://metamask.app.link/dapp/"))
+        assertTrue(repo.buildWalletDappDeepLink("trust").startsWith("https://link.trustwallet.com/open_url?coin_id=60"))
         assertTrue(repo.buildWalletDappDeepLink("coinbase").startsWith("https://go.cb-w.com/dapp"))
         assertTrue(repo.buildWalletDappDeepLink("binance").startsWith("bnc://app.binance.com/"))
         assertTrue(repo.buildWalletDappDeepLink("okx").startsWith("https://www.okx.com/download"))
         assertTrue(repo.buildWalletDappDeepLink("bitget").startsWith("https://bkcode.vip"))
+        assertTrue(repo.buildWalletDappDeepLink("phantom").startsWith("https://phantom.app/ul/browse/"))
         assertTrue(repo.buildWalletDappDeepLink("safepal").startsWith("https://link.safepal.io/dapp"))
 
         val sendUri = repo.buildNativeTransferDeepLink("0x3f48248FFE235a5205d1D781fB6c852c71fc1556", 1.0, "metamask")

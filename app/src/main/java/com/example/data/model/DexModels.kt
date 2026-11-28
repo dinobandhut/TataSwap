@@ -148,3 +148,33 @@ data class DexProtocolStats(
     val officialListingFeeUsdt: Double = 5.0,
     val isEmergencyPaused: Boolean = false
 )
+
+data class OhlcCandle(
+    val timestampMs: Long,
+    val open: Double,
+    val high: Double,
+    val low: Double,
+    val close: Double,
+    val volume: Double = 0.0
+)
+
+data class PairOhlcHistory(
+    val pair: String,
+    val baseSymbol: String,
+    val quoteSymbol: String,
+    val interval: String,
+    val source: String,
+    val currentPrice: Double,
+    val changePercent: Double,
+    val high: Double,
+    val low: Double,
+    val candles: List<OhlcCandle>
+)
+
+data class OhlcChartUiState(
+    val pair: String = "BNB/USDT",
+    val interval: String = "1h",
+    val isLoading: Boolean = false,
+    val history: PairOhlcHistory? = null,
+    val errorMessage: String? = null
+)

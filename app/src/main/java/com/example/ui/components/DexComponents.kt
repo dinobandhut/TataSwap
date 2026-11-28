@@ -289,11 +289,14 @@ fun WalletConnectDialog(
     var inputAddress by remember { mutableStateOf("") }
     var addressError by remember { mutableStateOf<String?>(null) }
     var showMoreWallets by remember { mutableStateOf(false) }
+    var forcePicker by remember { mutableStateOf(false) }
+    var copiedAddress by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    val targetDexUrl = "https://tataswap.onrender.com/dex.html"
+    val targetDexUrl = "https://tataswap.onrender.com/dex.html?autoConnect=1"
     val encodedDexUrl = remember { java.net.URLEncoder.encode(targetDexUrl, "UTF-8") }
+    val encodedOrigin = remember { java.net.URLEncoder.encode("https://tataswap.onrender.com", "UTF-8") }
 
     fun openExternalUrl(url: String, fallbackUrl: String? = null) {
         try {
@@ -309,6 +312,8 @@ fun WalletConnectDialog(
         }
     }
 
+    val showConnectedSummary = connectedAddress != null && !forcePicker
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = DarkSurface,
@@ -319,7 +324,7 @@ fun WalletConnectDialog(
             ) {
                 Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = BnbGold)
                 Text(
-                    text = if (connectedAddress != null) "Wallet Account" else "Connect a wallet",
+                    text = if (showConnectedSummary) "Connected Wallet" else "Connect a wallet",
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
@@ -332,7 +337,7 @@ fun WalletConnectDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (connectedAddress != null) {
+                if (showConnectedSummary && connectedAddress != null) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = DarkSurfaceElevated),
                         shape = RoundedCornerShape(12.dp),
@@ -355,9 +360,17 @@ fun WalletConnectDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
-                                    onClick = { clipboardManager.setText(AnnotatedString(connectedAddress)) }
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(connectedAddress))
+                                        copiedAddress = true
+                                    }
                                 ) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = BnbGold, modifier = Modifier.size(18.dp))
+                                    Icon(
+                                        imageVector = if (copiedAddress) Icons.Default.Check else Icons.Default.ContentCopy,
+                                        contentDescription = if (copiedAddress) "Copied" else "Copy",
+                                        tint = if (copiedAddress) CryptoGreen else BnbGold,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
                             }
                             Spacer(modifier = Modifier.height(6.dp))
@@ -370,14 +383,14 @@ fun WalletConnectDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         OutlinedButton(
-                            onClick = { openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html") },
+                            onClick = { openExternalUrl("https://metamask.app.link/dapp/tataswap.onrender.com/dex.html?autoConnect=1") },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("MetaMask", fontSize = 11.sp, color = BnbGold)
                         }
                         OutlinedButton(
-                            onClick = { openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetDexUrl") },
+                            onClick = { openExternalUrl("https://link.trustwallet.com/open_url?coin_id=60&url=$encodedDexUrl") },
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.weight(1f)
                         ) {
@@ -392,17 +405,40 @@ fun WalletConnectDialog(
                         }
                     }
 
-                    Button(
-                        onClick = onDisconnect,
-                        colors = ButtonDefaults.buttonColors(containerColor = CryptoRed),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.PowerSettingsNew, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Disconnect Wallet")
+                        OutlinedButton(
+                            onClick = { forcePicker = true },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("switch_wallet_button")
+                        ) {
+                            Text("Switch Wallet", fontSize = 12.sp, color = NeonCyan)
+                        }
+                        Button(
+                            onClick = onDisconnect,
+                            colors = ButtonDefaults.buttonColors(containerColor = CryptoRed),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("disconnect_wallet_button")
+                        ) {
+                            Text("Disconnect", fontSize = 12.sp)
+                        }
                     }
                 } else {
+                    if (connectedAddress != null) {
+                        TextButton(
+                            onClick = { forcePicker = false },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Back to Connected Wallet", fontSize = 11.sp, color = NeonCyan)
+                        }
+                    }
+
                     // Open in Google Chrome banner
                     Surface(
                         onClick = { openExternalUrl(targetDexUrl) },
@@ -418,11 +454,23 @@ fun WalletConnectDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Open in Google Chrome", fontWeight = FontWeight.Bold, color = CryptoGreen, fontSize = 13.sp)
-                                Text("Connect any Web3 browser extension or mobile wallet", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                Text("Auto-connects MetaMask, Trust, OKX, Phantom & WalletConnect QR", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             }
                             Icon(Icons.Default.OpenInBrowser, contentDescription = "Open in Google Chrome", tint = CryptoGreen, modifier = Modifier.size(20.dp))
                         }
                     }
+
+                    WalletOptionRow(
+                        emoji = "🦊",
+                        badgeColor = Color(0xFFF6851B),
+                        borderColor = Color(0xFFF6851B).copy(alpha = 0.6f),
+                        title = "MetaMask",
+                        subtitle = "Browser extension or MetaMask Mobile DApp Browser",
+                        actionColor = BnbGold,
+                        onClick = {
+                            openExternalUrl("https://metamask.app.link/dapp/tataswap.onrender.com/dex.html?autoConnect=1")
+                        }
+                    )
 
                     WalletOptionRow(
                         emoji = "🛡️",
@@ -432,7 +480,34 @@ fun WalletConnectDialog(
                         subtitle = "Tap to open in Trust Wallet DApp Browser",
                         actionColor = NeonCyan,
                         onClick = {
-                            openExternalUrl("https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetDexUrl")
+                            openExternalUrl("https://link.trustwallet.com/open_url?coin_id=60&url=$encodedDexUrl")
+                        }
+                    )
+
+                    WalletOptionRow(
+                        emoji = "🔵",
+                        badgeColor = Color(0xFF0052FF),
+                        borderColor = Color(0xFF0052FF).copy(alpha = 0.55f),
+                        title = "Coinbase Wallet",
+                        subtitle = "Tap to open in Coinbase Wallet App",
+                        actionColor = NeonCyan,
+                        onClick = {
+                            openExternalUrl("https://go.cb-w.com/dapp?cb_url=$encodedDexUrl")
+                        }
+                    )
+
+                    WalletOptionRow(
+                        emoji = "🟡",
+                        badgeColor = BnbGold,
+                        borderColor = BnbGold.copy(alpha = 0.55f),
+                        title = "Binance Wallet",
+                        subtitle = "Browser extension or WalletConnect pairing",
+                        actionColor = BnbGold,
+                        onClick = {
+                            openExternalUrl(
+                                targetDexUrl,
+                                "https://www.binance.com/en/web3wallet"
+                            )
                         }
                     )
 
@@ -440,12 +515,47 @@ fun WalletConnectDialog(
                         emoji = "🔗",
                         badgeColor = Color(0xFF3B99FC),
                         borderColor = Color(0xFF3B99FC).copy(alpha = 0.55f),
-                        title = "WalletConnect (All Wallets)",
-                        subtitle = if (showMoreWallets) "Hide mobile wallet apps" else "OKX, Bitget, SafePal, Rainbow & more",
+                        title = "WalletConnect & More Wallets",
+                        subtitle = if (showMoreWallets) "Hide OKX, Bitget, Phantom & SafePal" else "ID: 58ad2600...28d50 • OKX, Bitget, Phantom, SafePal",
                         actionColor = Color(0xFF3B99FC),
                         actionLabel = if (showMoreWallets) "Hide" else "Select",
                         onClick = { showMoreWallets = !showMoreWallets }
                     )
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = DarkSurfaceElevated,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("WalletConnect Project ID", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                Text(
+                                    text = com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID))
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Project ID", tint = NeonCyan, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
 
                     if (showMoreWallets) {
                         Column(
@@ -459,10 +569,10 @@ fun WalletConnectDialog(
                                 badgeColor = Color(0xFF1F2937),
                                 borderColor = DarkSurfaceBorder,
                                 title = "OKX Wallet",
-                                subtitle = "Tap to open in OKX Web3 Wallet",
+                                subtitle = "Tap to open in OKX Web3 DApp Browser",
                                 actionColor = NeonCyan,
                                 onClick = {
-                                    val okxInner = java.net.URLEncoder.encode("okx://wallet/dapp/url?dappUrl=$encodedDexUrl", "UTF-8")
+                                    val okxInner = java.net.URLEncoder.encode("okx://wallet/dapp/details?dappUrl=$encodedDexUrl", "UTF-8")
                                     openExternalUrl("https://www.okx.com/download?deeplink=$okxInner")
                                 }
                             )
@@ -475,6 +585,17 @@ fun WalletConnectDialog(
                                 actionColor = NeonCyan,
                                 onClick = {
                                     openExternalUrl("https://bkcode.vip?action=dapp&url=$encodedDexUrl")
+                                }
+                            )
+                            WalletOptionRow(
+                                emoji = "👻",
+                                badgeColor = Color(0xFF5346E0),
+                                borderColor = DarkSurfaceBorder,
+                                title = "Phantom",
+                                subtitle = "Browser extension or Phantom Mobile Browser",
+                                actionColor = NeonCyan,
+                                onClick = {
+                                    openExternalUrl("https://phantom.app/ul/browse/$encodedDexUrl?ref=$encodedOrigin")
                                 }
                             )
                             WalletOptionRow(
@@ -502,52 +623,18 @@ fun WalletConnectDialog(
                         }
                     }
 
-                    WalletOptionRow(
-                        emoji = "🦊",
-                        badgeColor = Color(0xFFF6851B),
-                        borderColor = Color(0xFFF6851B).copy(alpha = 0.6f),
-                        title = "MetaMask",
-                        subtitle = "Tap to open in MetaMask Mobile Browser",
-                        actionColor = BnbGold,
-                        onClick = {
-                            openExternalUrl("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html")
-                        }
-                    )
-
-                    WalletOptionRow(
-                        emoji = "🔵",
-                        badgeColor = Color(0xFF0052FF),
-                        borderColor = Color(0xFF0052FF).copy(alpha = 0.55f),
-                        title = "Coinbase Wallet",
-                        subtitle = "Tap to open in Coinbase Wallet App",
-                        actionColor = NeonCyan,
-                        onClick = {
-                            openExternalUrl("https://go.cb-w.com/dapp?cb_url=$encodedDexUrl")
-                        }
-                    )
-
-                    WalletOptionRow(
-                        emoji = "🟡",
-                        badgeColor = BnbGold,
-                        borderColor = BnbGold.copy(alpha = 0.55f),
-                        title = "Binance Wallet",
-                        subtitle = "BNB Smart Chain Web3 wallet",
-                        actionColor = BnbGold,
-                        onClick = {
-                            openExternalUrl(
-                                "bnc://app.binance.com/cedefi/browser?url=$encodedDexUrl",
-                                "https://www.binance.com/en/web3wallet"
-                            )
-                        }
-                    )
-
                     // App Owner Wallet Option (0 Listing Fee)
                     Surface(
-                        onClick = { onConnectCustom("0x3f48248FFE235a5205d1D781fB6c852c71fc1556") },
+                        onClick = {
+                            forcePicker = false
+                            onConnectCustom("0x3f48248FFE235a5205d1D781fB6c852c71fc1556")
+                        },
                         shape = RoundedCornerShape(12.dp),
                         color = CryptoGreenBg,
                         border = androidx.compose.foundation.BorderStroke(1.dp, CryptoGreen.copy(alpha = 0.6f)),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("owner_wallet_button")
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -570,14 +657,14 @@ fun WalletConnectDialog(
                         }
                     }
 
-                    // Direct address input
+                    // Watch-Only / Direct address input
                     OutlinedTextField(
                         value = inputAddress,
                         onValueChange = {
                             inputAddress = it
                             addressError = null
                         },
-                        label = { Text("Paste Real 0x EVM Address") },
+                        label = { Text("Watch-Only / Paste 0x EVM Address") },
                         placeholder = { Text("0x...") },
                         singleLine = true,
                         isError = addressError != null,
@@ -587,7 +674,9 @@ fun WalletConnectDialog(
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("wallet_address_input")
                     )
 
                     if (addressError != null) {
@@ -603,6 +692,7 @@ fun WalletConnectDialog(
                             val clean = inputAddress.trim()
                             val isValidEvm = clean.startsWith("0x") && clean.length == 42
                             if (isValidEvm) {
+                                forcePicker = false
                                 onConnectCustom(clean)
                             } else {
                                 addressError = "Enter a valid 42-char 0x EVM wallet address."
@@ -610,7 +700,9 @@ fun WalletConnectDialog(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BnbGold, contentColor = Color.Black),
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("connect_custom_wallet_button")
                     ) {
                         Text("Connect & Sync Live Balance", fontWeight = FontWeight.Bold)
                     }

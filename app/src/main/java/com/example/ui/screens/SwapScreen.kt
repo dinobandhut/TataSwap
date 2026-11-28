@@ -26,8 +26,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.BlockchainNetwork
+import com.example.data.model.OhlcChartUiState
 import com.example.data.model.Token
 import com.example.ui.components.SlippageSettingsDialog
+import com.example.ui.components.SwapOhlcChartCard
 import com.example.ui.components.TokenSelectorModal
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.SwapUiState
@@ -35,6 +37,7 @@ import com.example.ui.viewmodel.SwapUiState
 @Composable
 fun SwapScreen(
     swapState: SwapUiState?,
+    ohlcState: OhlcChartUiState,
     allTokens: List<Token>,
     currentNetwork: BlockchainNetwork,
     connectedWallet: String?,
@@ -43,6 +46,8 @@ fun SwapScreen(
     onTokenOutSelect: (Token) -> Unit,
     onSwitchTokens: () -> Unit,
     onSlippageChange: (Double) -> Unit,
+    onSelectChartInterval: (String) -> Unit,
+    onRefreshOhlc: () -> Unit,
     onExecuteSwap: () -> Unit,
     onConnectWallet: () -> Unit
 ) {
@@ -99,6 +104,13 @@ fun SwapScreen(
                 )
             }
         }
+
+        // PAIR PRICE HISTORY CHART (OHLC)
+        SwapOhlcChartCard(
+            ohlcState = ohlcState,
+            onSelectInterval = onSelectChartInterval,
+            onRefresh = onRefreshOhlc
+        )
 
         // SWAP CONTAINER CARD
         Card(

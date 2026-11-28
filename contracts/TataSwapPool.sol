@@ -79,6 +79,7 @@ contract TataSwapPool {
 
     function burn(address to) external nonReentrant returns (uint256 amount0, uint256 amount1) {
         uint256 liquidity = balanceOf[address(this)];
+        require(liquidity > 0 && totalSupply > 0, "TataSwap: insufficient liquidity burned");
         uint256 balance0 = IERC20Minimal(token0).balanceOf(address(this));
         uint256 balance1 = IERC20Minimal(token1).balanceOf(address(this));
 
@@ -112,9 +113,8 @@ contract TataSwapPool {
         require(amount0In > 0 || amount1In > 0, "TataSwap: insufficient input");
 
         // Verify constant product formula with fee tier deduction
-        uint256 feeMultiplier = 1000000 - feeTier;
-        uint256 balance0Adjusted = (balance0 * 1000000) - (amount0In * feeTier);
-        uint256 balance1Adjusted = (balance1 * 1000000) - (amount1In * feeTier);
+        uint256 balance0Adjusted = (balance0 * 1000000) - (amount0In * uint256(feeTier));
+        uint256 balance1Adjusted = (balance1 * 1000000) - (amount1In * uint256(feeTier));
         require(
             balance0Adjusted * balance1Adjusted >= uint256(_reserve0) * uint256(_reserve1) * (1000000**2),
             "TataSwap: K value invariant violated"

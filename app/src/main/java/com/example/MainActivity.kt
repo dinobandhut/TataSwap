@@ -55,6 +55,7 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
     val protocolStats by viewModel.protocolStats.collectAsStateWithLifecycle()
     val swapState by viewModel.swapState.collectAsStateWithLifecycle()
+    val ohlcState by viewModel.ohlcState.collectAsStateWithLifecycle()
     val listingState by viewModel.listingState.collectAsStateWithLifecycle()
     val selectedToken by viewModel.selectedToken.collectAsStateWithLifecycle()
     val selectedPool by viewModel.selectedPool.collectAsStateWithLifecycle()
@@ -248,6 +249,7 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
                     )
                     DexScreen.SWAP -> SwapScreen(
                         swapState = swapState,
+                        ohlcState = ohlcState,
                         allTokens = tokens,
                         currentNetwork = currentNetwork,
                         connectedWallet = connectedWallet,
@@ -256,6 +258,8 @@ fun TataSwapApp(viewModel: DexViewModel = viewModel()) {
                         onTokenOutSelect = { viewModel.setSwapTokenOut(it) },
                         onSwitchTokens = { viewModel.switchSwapTokens() },
                         onSlippageChange = { viewModel.setSlippage(it) },
+                        onSelectChartInterval = { viewModel.selectChartInterval(it) },
+                        onRefreshOhlc = { viewModel.loadSwapOhlc() },
                         onExecuteSwap = { viewModel.executeSwap() },
                         onConnectWallet = { viewModel.openWalletModal() }
                     )

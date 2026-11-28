@@ -29,7 +29,8 @@ import com.example.ui.theme.*
 @Composable
 fun WebDexViewScreen() {
     val context = LocalContext.current
-    val liveDexUrl = "https://tataswap.onrender.com/dex.html"
+    val liveDexUrl = "https://tataswap.onrender.com/dex.html?autoConnect=1"
+    val encodedDexUrl = remember { java.net.URLEncoder.encode(liveDexUrl, "UTF-8") }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     fun launchExternalUri(url: String) {
@@ -74,14 +75,14 @@ fun WebDexViewScreen() {
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(
-                        onClick = { launchExternalUri("https://link.metamask.io/dapp/tataswap.onrender.com/dex.html") },
+                        onClick = { launchExternalUri("https://metamask.app.link/dapp/tataswap.onrender.com/dex.html?autoConnect=1") },
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text("MetaMask", fontSize = 11.sp, color = BnbGold, fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
-                        onClick = { launchExternalUri("https://link.trustwallet.com/open_url?coin_id=20000714&url=$liveDexUrl") },
+                        onClick = { launchExternalUri("https://link.trustwallet.com/open_url?coin_id=60&url=$encodedDexUrl") },
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
@@ -120,14 +121,17 @@ fun WebDexViewScreen() {
                                 "bitkeep:",
                                 "rainbow:",
                                 "safepalwallet:",
+                                "phantom:",
                                 "tpoutside:",
                                 "tpdapp:",
                                 "wc:",
                                 "ethereum:",
                                 "intent:",
+                                "https://metamask.app.link/",
                                 "https://link.metamask.io/",
                                 "https://link.trustwallet.com/",
                                 "https://go.cb-w.com/",
+                                "https://phantom.app/ul/",
                                 "https://www.okx.com/download",
                                 "https://bkcode.vip",
                                 "https://rnbwapp.com",

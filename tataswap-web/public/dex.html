@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TataSwap App – 12-Page Web3 Decentralized Exchange</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
     body { background-color: #090c12; color: #f5f7fa; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -90,53 +91,103 @@
       </div>
     </section>
 
-    <!-- 2. SWAP -->
+    <!-- 2. SWAP + D3.JS HISTORICAL OHLC PRICE CHART -->
     <section id="page-swap" class="dex-page flex flex-col items-center py-4 space-y-4">
-      <div id="swapLiveTicker" class="w-full max-w-2xl grid grid-cols-3 sm:grid-cols-5 gap-2 text-[11px]"></div>
-      <div class="w-full max-w-md card-dark rounded-2xl p-5 space-y-3 shadow-2xl">
-        <div class="flex justify-between items-center">
-          <div class="flex items-center space-x-2">
-            <h2 class="text-lg font-bold">Swap</h2>
-            <span id="priceFeedBadge" class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">● Syncing</span>
+      <div id="swapLiveTicker" class="w-full max-w-6xl grid grid-cols-3 sm:grid-cols-5 gap-2 text-[11px]"></div>
+      <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <!-- D3.js OHLC Price History Chart -->
+        <div id="swapPriceChartCard" class="lg:col-span-7 card-dark rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xl">
+          <div class="flex flex-wrap justify-between items-start gap-3">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 id="chartPairTitle" class="text-lg font-extrabold text-white">BNB / USDT</h3>
+                <span id="chartPairChange" class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold">+0.00%</span>
+                <span id="chartSourceBadge" class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-[10px] font-semibold">OHLC Feed</span>
+              </div>
+              <div class="flex items-baseline gap-2 mt-1 flex-wrap">
+                <span id="chartPairRate" class="text-2xl font-black text-white">624.50</span>
+                <span id="chartPairQuoteLabel" class="text-xs font-bold text-gray-400">USDT per BNB</span>
+                <span id="chartHighLow" class="text-[11px] text-gray-400 ml-1">H: -- • L: --</span>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <div class="flex bg-[#0d111a] border border-gray-800 rounded-xl p-0.5 text-[11px] font-bold">
+                <button onclick="setChartInterval('15m')" data-interval="15m" class="chart-iv-btn px-2.5 py-1 rounded-lg text-gray-400 hover:text-white">15m</button>
+                <button onclick="setChartInterval('1h')" data-interval="1h" class="chart-iv-btn px-2.5 py-1 rounded-lg bg-yellow-400 text-black">1H</button>
+                <button onclick="setChartInterval('4h')" data-interval="4h" class="chart-iv-btn px-2.5 py-1 rounded-lg text-gray-400 hover:text-white">4H</button>
+                <button onclick="setChartInterval('1d')" data-interval="1d" class="chart-iv-btn px-2.5 py-1 rounded-lg text-gray-400 hover:text-white">1D</button>
+              </div>
+              <div class="flex bg-[#0d111a] border border-gray-800 rounded-xl p-0.5 text-[11px] font-bold">
+                <button onclick="setChartMode('candles')" data-mode="candles" class="chart-mode-btn px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300">Candles</button>
+                <button onclick="setChartMode('area')" data-mode="area" class="chart-mode-btn px-2.5 py-1 rounded-lg text-gray-400 hover:text-white">Area</button>
+              </div>
+            </div>
           </div>
-          <div class="text-xs text-gray-400">Slippage:
-            <select id="slippageVal" onchange="recalcSwap()" class="bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-yellow-400 font-bold">
-              <option value="0.1">0.1%</option>
-              <option value="0.5" selected>0.5%</option>
-              <option value="1.0">1.0%</option>
-            </select>
+
+          <div id="chartOhlcReadout" class="card-darker rounded-xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-gray-300">
+            <span>O: <strong id="ohlcOpen" class="text-white">--</strong></span>
+            <span>H: <strong id="ohlcHigh" class="text-emerald-400">--</strong></span>
+            <span>L: <strong id="ohlcLow" class="text-red-400">--</strong></span>
+            <span>C: <strong id="ohlcClose" class="text-yellow-400">--</strong></span>
+            <span>Vol: <strong id="ohlcVol" class="text-cyan-300">--</strong></span>
+            <span id="ohlcTime" class="text-gray-400">--</span>
+          </div>
+
+          <div id="swapD3ChartWrap" class="relative w-full h-[290px] sm:h-[340px] card-darker rounded-xl overflow-hidden">
+            <div id="swapD3Chart" class="w-full h-full"></div>
+            <div id="swapChartTooltip" class="hidden pointer-events-none absolute top-2 left-2 bg-[#090c12]/95 border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono shadow-xl z-10"></div>
+            <div id="chartLoadingState" class="hidden absolute inset-0 bg-[#0d111a]/80 backdrop-blur-[1px] flex items-center justify-center text-xs font-bold text-yellow-400">
+              <i class="fas fa-chart-candlestick mr-2"></i> Loading pair OHLC history...
+            </div>
           </div>
         </div>
-        <div class="card-darker rounded-xl p-3.5">
-          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>You Pay</span><span id="swapBalIn">Balance: --</span></div>
-          <div class="flex justify-between items-center gap-2">
-            <input id="swapAmountIn" type="number" value="0.1" step="any" oninput="recalcSwap()" class="bg-transparent text-2xl font-bold text-white w-full focus:outline-none" />
-            <select id="swapInToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-yellow-400">
-              <option value="TATA">TATA</option><option value="BNB" selected>BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="USDT">USDT</option>
-            </select>
+
+        <!-- Swap Execution Card -->
+        <div class="lg:col-span-5 w-full max-w-md lg:max-w-none mx-auto card-dark rounded-2xl p-5 space-y-3 shadow-2xl">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+              <h2 class="text-lg font-bold">Swap</h2>
+              <span id="priceFeedBadge" class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">● Syncing</span>
+            </div>
+            <div class="text-xs text-gray-400">Slippage:
+              <select id="slippageVal" onchange="recalcSwap()" class="bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-yellow-400 font-bold">
+                <option value="0.1">0.1%</option>
+                <option value="0.5" selected>0.5%</option>
+                <option value="1.0">1.0%</option>
+              </select>
+            </div>
           </div>
-          <div id="swapPayUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
-        </div>
-        <div class="flex justify-center -my-2">
-          <button onclick="flipSwap()" class="w-8 h-8 rounded-full card-dark border border-yellow-500/50 text-yellow-400 font-bold text-sm">⇅</button>
-        </div>
-        <div class="card-darker rounded-xl p-3.5">
-          <div class="flex justify-between text-xs text-gray-400 mb-1"><span>You Receive</span><span>AMM Estimate</span></div>
-          <div class="flex justify-between items-center gap-2">
-            <span id="swapAmountOut" class="text-2xl font-bold text-emerald-400">62.29</span>
-            <select id="swapOutToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-emerald-400">
-              <option value="USDT" selected>USDT</option><option value="TATA">TATA</option><option value="BNB">BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option>
-            </select>
+          <div class="card-darker rounded-xl p-3.5">
+            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>You Pay</span><span id="swapBalIn">Balance: --</span></div>
+            <div class="flex justify-between items-center gap-2">
+              <input id="swapAmountIn" type="number" value="0.1" step="any" oninput="recalcSwap()" class="bg-transparent text-2xl font-bold text-white w-full focus:outline-none" />
+              <select id="swapInToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-yellow-400">
+                <option value="TATA">TATA</option><option value="BNB" selected>BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option><option value="USDT">USDT</option>
+              </select>
+            </div>
+            <div id="swapPayUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
           </div>
-          <div id="swapOutUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
+          <div class="flex justify-center -my-2">
+            <button onclick="flipSwap()" class="w-8 h-8 rounded-full card-dark border border-yellow-500/50 text-yellow-400 font-bold text-sm">⇅</button>
+          </div>
+          <div class="card-darker rounded-xl p-3.5">
+            <div class="flex justify-between text-xs text-gray-400 mb-1"><span>You Receive</span><span>AMM Estimate</span></div>
+            <div class="flex justify-between items-center gap-2">
+              <span id="swapAmountOut" class="text-2xl font-bold text-emerald-400">62.29</span>
+              <select id="swapOutToken" onchange="recalcSwap()" class="bg-gray-800 px-3 py-1.5 rounded-xl text-sm font-bold text-emerald-400">
+                <option value="USDT" selected>USDT</option><option value="TATA">TATA</option><option value="BNB">BNB</option><option value="ETH">ETH</option><option value="POL">POL</option><option value="CORE">CORE</option>
+              </select>
+            </div>
+            <div id="swapOutUsd" class="text-[11px] text-gray-400 mt-1">~$0.00 USD</div>
+          </div>
+          <div class="card-darker rounded-xl p-3 text-xs text-gray-400 space-y-1">
+            <div class="flex justify-between"><span>Rate</span><span id="swapRate" class="text-white">1 BNB = 624.50 USDT</span></div>
+            <div class="flex justify-between"><span>Minimum Received</span><span id="swapMinRec" class="text-white">61.98 USDT</span></div>
+            <div class="flex justify-between"><span>Fee Split</span><span class="text-white">0.20% LP + 0.05% Treasury</span></div>
+          </div>
+          <button onclick="submitSwap()" class="w-full py-3.5 rounded-xl gold-bg font-extrabold text-sm">Execute Swap</button>
+          <div id="swapNotice" class="text-xs text-center text-amber-300 hidden"></div>
         </div>
-        <div class="card-darker rounded-xl p-3 text-xs text-gray-400 space-y-1">
-          <div class="flex justify-between"><span>Rate</span><span id="swapRate" class="text-white">1 BNB = 624.50 USDT</span></div>
-          <div class="flex justify-between"><span>Minimum Received</span><span id="swapMinRec" class="text-white">61.98 USDT</span></div>
-          <div class="flex justify-between"><span>Fee Split</span><span class="text-white">0.20% LP + 0.05% Treasury</span></div>
-        </div>
-        <button onclick="submitSwap()" class="w-full py-3.5 rounded-xl gold-bg font-extrabold text-sm">Execute Swap</button>
-        <div id="swapNotice" class="text-xs text-center text-amber-300 hidden"></div>
       </div>
     </section>
 
@@ -590,145 +641,147 @@
 
   </main>
 
-  <!-- UNIVERSAL WEB3 WALLET CONNECT MODAL (Google Chrome Desktop + Mobile + Iframes + DApp Browsers) -->
+  <!-- UNIVERSAL WEB3 WALLET CONNECT MODAL (Mirrors tataservice-blockchain EIP-6963 + QR + WC v2 + Deep Links) -->
   <div id="walletModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
     <div class="card-dark rounded-2xl max-w-md w-full p-5 space-y-3.5 shadow-2xl my-auto">
       <div class="flex justify-between items-center">
-        <h3 class="text-lg font-extrabold text-white">Connect a wallet</h3>
+        <div>
+          <h3 id="walletModalTitle" class="text-lg font-extrabold text-white">Connect a wallet</h3>
+          <p id="walletModalSubtitle" class="text-[11px] text-gray-400">EIP-6963 extensions, WalletConnect v2 QR &amp; mobile DApp deep links</p>
+        </div>
         <button onclick="closeWalletModal()" class="text-gray-400 hover:text-white text-xl font-bold leading-none px-1">&times;</button>
       </div>
 
-      <!-- Connected Wallet Summary -->
-      <div id="walletConnectedBox" class="hidden rounded-xl p-3.5 bg-emerald-500/10 border border-emerald-500/40 space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider" id="walletConnectedLabel">Connected</span>
-          <button onclick="disconnectWallet()" class="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 text-[11px] font-bold hover:bg-red-500/30">Disconnect</button>
-        </div>
-        <div id="walletConnectedAddr" class="text-xs font-mono text-white break-all"></div>
+      <!-- Inline Modal Error Banner -->
+      <div id="walletModalError" class="hidden rounded-xl p-3 bg-red-500/15 border border-red-500/40 text-xs text-red-200 flex items-start justify-between gap-2">
+        <span id="walletModalErrorText"></span>
+        <button onclick="clearWalletModalError()" class="text-red-300 hover:text-white font-bold leading-none">&times;</button>
       </div>
 
-      <!-- Embedded Iframe / Mobile Chrome Helper Notice -->
-      <div id="walletEnvNotice" class="hidden rounded-xl p-3.5 bg-amber-500/10 border border-amber-500/35 space-y-2.5">
-        <div class="flex items-start gap-2 text-xs text-amber-200">
-          <i class="fas fa-exclamation-triangle text-amber-400 mt-0.5"></i>
-          <span id="walletEnvNoticeText">Browser extensions (MetaMask, Trust Wallet) are blocked inside embedded preview iframes.</span>
+      <!-- Connected Wallet Summary View -->
+      <div id="walletConnectedBox" class="hidden rounded-xl p-4 bg-emerald-500/10 border border-emerald-500/40 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs font-extrabold text-emerald-300" id="walletConnectedLabel">Connected</span>
+            <span id="walletConnectedChainBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-200 font-bold">Chain ID 810161 Active</span>
+          </div>
+          <button onclick="disconnectWallet()" class="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-300 text-[11px] font-bold hover:bg-red-500/30 shrink-0">Disconnect</button>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="openInNewBrowserTab()" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-extrabold text-xs flex items-center gap-1.5">
-            <i class="fas fa-external-link-alt"></i>
-            <span>Open in New Browser Tab</span>
+
+        <div class="flex items-center justify-between gap-2 bg-[#090c12] rounded-xl px-3 py-2.5 border border-gray-800">
+          <div id="walletConnectedAddr" class="text-xs font-mono text-white break-all"></div>
+          <button onclick="copyConnectedAddress()" class="px-2.5 py-1 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-700 text-[11px] font-bold text-cyan-300 shrink-0">
+            <span id="copyAddrLabel">Copy</span>
           </button>
-          <a href="#walletAppsList" onclick="document.getElementById('walletAppsList')?.scrollIntoView({behavior:'smooth'});return false;" class="px-3 py-1.5 rounded-lg bg-[#131823] border border-gray-700 text-gray-200 font-bold text-xs flex items-center gap-1.5">
-            <i class="fas fa-mobile-alt"></i>
-            <span>Mobile Wallet Apps</span>
-          </a>
+        </div>
+
+        <div class="flex items-center justify-between text-xs px-1">
+          <span class="text-gray-400">Active Chain Balance</span>
+          <span id="walletModalBalance" class="font-extrabold text-white font-mono">0.0000 TATA</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button onclick="switchOrAddActiveNetwork()" class="py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-200 text-xs font-bold">
+            Switch / Add Network
+          </button>
+          <button onclick="switchWalletInModal()" class="py-2 px-3 rounded-xl bg-[#131823] hover:bg-[#1a2234] border border-gray-700 text-gray-200 text-xs font-bold">
+            Switch Wallet
+          </button>
         </div>
       </div>
 
-      <!-- Auto-Detected Chrome / EIP-6963 Extensions -->
-      <div id="detectedWalletsBox" class="hidden space-y-2">
-        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Detected Browser Extensions</div>
-        <div id="detectedWalletsList" class="space-y-2"></div>
-      </div>
+      <!-- Wallet Selection View -->
+      <div id="walletSelectionView" class="space-y-3">
+        <div id="backToConnectedRow" class="hidden flex justify-end">
+          <button onclick="backToConnectedSummary()" class="text-xs font-bold text-cyan-400 hover:underline">&larr; Back to Connected Wallet</button>
+        </div>
 
-      <!-- All Major Web3 Wallets -->
-      <div id="walletAppsList" class="space-y-2">
-        <button onclick="connectWalletByType('trust')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-blue-500/50 transition flex items-center justify-between text-left">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-lg shrink-0">🛡️</div>
-            <div class="min-w-0">
-              <div class="text-xs font-extrabold text-white truncate">Trust Wallet Mobile &amp; Extension</div>
-              <div class="text-[11px] text-gray-400 truncate" id="subTrust">Tap to open in Trust Wallet DApp Browser</div>
+        <!-- Embedded Iframe / Mobile / No-Extension Helper Notice -->
+        <div id="walletEnvNotice" class="hidden rounded-xl p-3.5 bg-amber-500/10 border border-amber-500/35 space-y-2.5">
+          <div class="flex items-start gap-2 text-xs text-amber-200">
+            <i class="fas fa-exclamation-triangle text-amber-400 mt-0.5"></i>
+            <span id="walletEnvNoticeText">Browser extensions (MetaMask, Trust Wallet) are blocked inside embedded preview iframes.</span>
+          </div>
+          <div id="walletEnvActions" class="flex flex-wrap gap-2">
+            <button onclick="openInNewBrowserTab()" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-black font-extrabold text-xs flex items-center gap-1.5">
+              <i class="fas fa-external-link-alt"></i>
+              <span>Open in New Browser Tab</span>
+            </button>
+            <a href="#walletCatalogList" onclick="document.getElementById('walletCatalogList')?.scrollIntoView({behavior:'smooth'});return false;" class="px-3 py-1.5 rounded-lg bg-[#131823] border border-gray-700 text-gray-200 font-bold text-xs flex items-center gap-1.5">
+              <i class="fas fa-mobile-alt"></i>
+              <span>Mobile Wallet Apps</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Auto-Detected Browser / EIP-6963 Extensions -->
+        <div id="detectedWalletsBox" class="hidden space-y-2">
+          <div id="detectedWalletsHeader" class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Detected Browser Wallets (0)</div>
+          <div id="detectedWalletsList" class="space-y-2"></div>
+        </div>
+
+        <!-- WalletConnect v2 (QR + Reown Project ID + Live Pairing URI) -->
+        <div class="rounded-xl bg-[#0d111a] border border-gray-800 overflow-hidden">
+          <button onclick="handleWalletConnectCardClick()" class="w-full p-3 hover:bg-[#151c2c] transition flex items-center justify-between text-left">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-lg shrink-0">🔗</div>
+              <div class="min-w-0">
+                <div class="text-xs font-extrabold text-white truncate">WalletConnect v2</div>
+                <div class="text-[11px] text-gray-400 truncate" id="subWc">Scan QR or pair any mobile Web3 wallet</div>
+              </div>
             </div>
-          </div>
-          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
-        </button>
+            <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2" id="wcActionBadge">Connect</span>
+          </button>
 
-        <button onclick="connectWalletConnect()" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-sky-500/50 transition flex items-center justify-between text-left">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-lg shrink-0">🔗</div>
-            <div class="min-w-0">
-              <div class="text-xs font-extrabold text-white truncate">WalletConnect</div>
-              <div class="text-[11px] text-gray-400 truncate" id="subWc">Open directly in any mobile wallet app</div>
+          <div id="wcSetupPanel" class="hidden border-t border-gray-800 bg-[#090c12] p-3.5 space-y-3">
+            <div class="flex items-center justify-between text-[11px]">
+              <span id="wcStatusText" class="text-sky-300 font-bold">WalletConnect v2 Ready</span>
+              <button onclick="startWalletConnectPairing(true)" class="text-cyan-400 font-bold hover:underline">Refresh QR</button>
             </div>
-          </div>
-          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
-        </button>
 
-        <!-- Expandable Extra Mobile Wallets & WalletConnect Project ID Drawer -->
-        <div id="wcExtraPanel" class="hidden rounded-xl p-3 bg-[#090c12] border border-sky-500/30 space-y-2">
-          <div class="text-[11px] font-bold text-sky-300">More Web3 Mobile &amp; Extension Wallets</div>
-          <div class="grid grid-cols-2 gap-2">
-            <button onclick="connectWalletByType('okx')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
-              <span>⚫ OKX Wallet</span><span class="text-cyan-400">&nearr;</span>
-            </button>
-            <button onclick="connectWalletByType('bitget')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
-              <span>💠 Bitget Wallet</span><span class="text-cyan-400">&nearr;</span>
-            </button>
-            <button onclick="connectWalletByType('safepal')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
-              <span>🔐 SafePal</span><span class="text-cyan-400">&nearr;</span>
-            </button>
-            <button onclick="connectWalletByType('rainbow')" class="p-2 rounded-lg bg-[#131823] hover:bg-[#1a2234] border border-gray-800 text-xs font-bold text-white flex items-center justify-between">
-              <span>🌈 Rainbow</span><span class="text-cyan-400">&nearr;</span>
-            </button>
-          </div>
-          <div class="pt-1 border-t border-gray-800 space-y-1.5">
-            <div class="text-[10px] text-gray-400">Optional: Enter Reown / WalletConnect Project ID for live QR Modal in Chrome:</div>
-            <div class="flex gap-1.5">
-              <input id="wcProjectIdInput" placeholder="WalletConnect Project ID" class="flex-1 bg-[#131823] border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-white" />
-              <button onclick="saveAndLaunchWalletConnect()" class="px-2.5 py-1.5 rounded-lg bg-sky-500 text-black font-bold text-[11px]">Launch QR</button>
+            <div id="wcQrBox" class="hidden flex flex-col items-center gap-2 bg-white rounded-xl p-3">
+              <img id="wcQrImage" alt="WalletConnect QR Code" class="w-44 h-44 object-contain" />
+              <div id="wcQrCaption" class="text-[10px] font-bold text-slate-700 text-center">Scan with MetaMask, Trust Wallet, Binance, OKX, or Bitget</div>
+            </div>
+
+            <div id="wcPairingActions" class="hidden space-y-2">
+              <div class="flex items-center justify-between gap-2 bg-[#131823] rounded-lg px-2.5 py-1.5 border border-gray-800">
+                <span id="wcUriPreview" class="text-[10px] font-mono text-gray-300 truncate">wc:...</span>
+                <button onclick="copyWcPairingUri()" class="text-[10px] font-bold text-cyan-400 shrink-0" id="copyWcUriBtn">Copy URI</button>
+              </div>
+              <div id="wcQuickDeepLinks" class="grid grid-cols-2 gap-1.5"></div>
+            </div>
+
+            <div class="pt-2 border-t border-gray-800 space-y-1.5">
+              <div class="text-[10px] text-gray-400">Reown / WalletConnect Project ID:</div>
+              <div class="flex gap-1.5">
+                <input id="wcProjectIdInput" value="58ad26007a1212b3406b582c93228d50" placeholder="WalletConnect Project ID" class="flex-1 bg-[#131823] border border-gray-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-white" />
+                <button onclick="saveWcProjectIdOnly()" class="px-2.5 py-1.5 rounded-lg bg-[#131823] border border-gray-700 text-gray-200 font-bold text-[11px]">Save ID</button>
+                <button onclick="saveAndLaunchWalletConnect()" class="px-2.5 py-1.5 rounded-lg bg-sky-500 text-black font-bold text-[11px]">Connect</button>
+              </div>
             </div>
           </div>
         </div>
 
-        <button onclick="connectWalletByType('metamask')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-orange-500/50 transition flex items-center justify-between text-left">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-lg shrink-0">🦊</div>
-            <div class="min-w-0">
-              <div class="text-xs font-extrabold text-white truncate">MetaMask</div>
-              <div class="text-[11px] text-gray-400 truncate" id="subMetaMask">Tap to open in MetaMask Mobile Browser</div>
-            </div>
-          </div>
-          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
-        </button>
+        <!-- Dynamic All-Wallets Catalog (with Mobile Direct Open App + Desktop/Iframe QR & Pair Flow) -->
+        <div id="walletCatalogList" class="space-y-2 max-h-80 overflow-y-auto pr-0.5"></div>
 
-        <button onclick="connectWalletByType('coinbase')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-blue-400/50 transition flex items-center justify-between text-left">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-lg shrink-0">🔵</div>
-            <div class="min-w-0">
-              <div class="text-xs font-extrabold text-white truncate">Coinbase Wallet</div>
-              <div class="text-[11px] text-gray-400 truncate" id="subCoinbase">Tap to open in Coinbase Wallet App</div>
-            </div>
-          </div>
-          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
-        </button>
-
-        <button onclick="connectWalletByType('binance')" class="w-full p-3 rounded-xl bg-[#0d111a] hover:bg-[#151c2c] border border-gray-800 hover:border-yellow-500/50 transition flex items-center justify-between text-left">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 rounded-xl bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-lg shrink-0">🟡</div>
-            <div class="min-w-0">
-              <div class="text-xs font-extrabold text-white truncate">Binance Wallet</div>
-              <div class="text-[11px] text-gray-400 truncate" id="subBinance">BNB Smart Chain Web3 wallet</div>
-            </div>
-          </div>
-          <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2">Connect</span>
-        </button>
-      </div>
-
-      <div class="flex items-center gap-2 text-[11px] text-gray-500">
-        <div class="h-px bg-gray-800 flex-1"></div>
-        <span>or</span>
-        <div class="h-px bg-gray-800 flex-1"></div>
-      </div>
-
-      <div class="space-y-2">
-        <div class="flex gap-2">
-          <input id="manualWalletInput" placeholder="Paste 0x... EVM Address" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
-          <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
+        <div class="flex items-center gap-2 text-[11px] text-gray-500 pt-1">
+          <div class="h-px bg-gray-800 flex-1"></div>
+          <span>or Watch-Only / Owner</span>
+          <div class="h-px bg-gray-800 flex-1"></div>
         </div>
-        <button onclick="connectOwnerWalletDirect()" class="w-full py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
-          👑 Connect App Owner Wallet (0x3f48...1556 • 0 Listing Fee)
-        </button>
+
+        <div class="space-y-2">
+          <div class="flex gap-2">
+            <input id="manualWalletInput" placeholder="Paste 0x... EVM Address (Watch-Only)" class="flex-1 bg-[#0d111a] border border-gray-700 rounded-xl px-3 py-2 text-xs font-mono text-white" />
+            <button onclick="connectManualAddress()" class="px-3 py-2 rounded-xl bg-cyan-500 text-black font-bold text-xs">Connect</button>
+          </div>
+          <button onclick="connectOwnerWalletDirect()" class="w-full py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
+            👑 Connect App Owner Wallet (0x3f48...1556 • 0 Listing Fee)
+          </button>
+        </div>
       </div>
     </div>
   </div>

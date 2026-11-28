@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.model.BlockchainNetwork
 import com.example.data.model.DexProtocolStats
 import com.example.data.model.LiquidityPool
+import com.example.data.model.OhlcChartUiState
 import com.example.data.model.SwapQuote
 import com.example.data.model.Token
 import com.example.data.model.TransactionRecord
@@ -85,6 +86,10 @@ class DexViewModel(
     private val _swapState = MutableStateFlow<SwapUiState?>(null)
     val swapState: StateFlow<SwapUiState?> = _swapState.asStateFlow()
 
+    // Swap OHLC Price History Chart State
+    private val _ohlcState = MutableStateFlow(OhlcChartUiState())
+    val ohlcState: StateFlow<OhlcChartUiState> = _ohlcState.asStateFlow()
+
     // Token Listing State
     private val _listingState = MutableStateFlow(ListingUiState())
     val listingState: StateFlow<ListingUiState> = _listingState.asStateFlow()
@@ -123,6 +128,7 @@ class DexViewModel(
         // Sync initial network status & live prices
         viewModelScope.launch {
             repository.refreshNetworkStatus()
+            loadSwapOhlc()
         }
 
         // Keep listing fee UI synced with connected wallet (Owner = 0 fee) & protocol stats
@@ -237,6 +243,7 @@ class DexViewModel(
             _swapState.value = curr.copy(tokenIn = token)
         }
         updateSwapAmountIn(_swapState.value?.amountIn ?: "")
+        loadSwapOhlc()
     }
 
     fun setSwapTokenOut(token: Token) {
@@ -247,6 +254,7 @@ class DexViewModel(
             _swapState.value = curr.copy(tokenOut = token)
         }
         updateSwapAmountIn(_swapState.value?.amountIn ?: "")
+        loadSwapOhlc()
     }
 
     fun switchSwapTokens() {
@@ -258,6 +266,35 @@ class DexViewModel(
             amountOut = "",
             quote = null
         )
+        loadSwapOhlc()
+    }
+
+    fun selectChartInterval(interval: String) {
+        _ohlcState.update { it.copy(interval = interval) }
+        loadSwapOhlc()
+    }
+
+    fun loadSwapOhlc() {
+        val curr = _swapState.value ?: return
+        val base = curr.tokenIn.symbol
+        val quote = curr.tokenOut.symbol
+        val interval = _ohlcState.value.interval
+        viewModelScope.launch {
+            _ohlcState.update { it.copy(pair = "$base/$quote", isLoading = true, errorMessage = null) }
+            val res = repository.fetchPairOhlc(base, quote, interval, 48)
+            res.onSuccess { history ->
+                if (_swapState.value?.tokenIn?.symbol == base &&
+                    _swapState.value?.tokenOut?.symbol == quote &&
+                    _ohlcState.value.interval == interval
+                ) {
+                    _ohlcState.update {
+                        it.copy(pair = history.pair, isLoading = false, history = history, errorMessage = null)
+                    }
+                }
+            }.onFailure { err ->
+                _ohlcState.update { it.copy(isLoading = false, errorMessage = err.message) }
+            }
+        }
     }
 
     fun setSlippage(slippage: Double) {

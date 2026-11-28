@@ -19,6 +19,7 @@ contract TataSwapFactory {
     );
 
     constructor(address _feeReceiver) {
+        require(_feeReceiver != address(0), "TataSwap: ZERO_ADDRESS");
         owner = msg.sender;
         feeReceiver = _feeReceiver;
     }
@@ -29,6 +30,7 @@ contract TataSwapFactory {
         uint24 feeTier
     ) external returns (address pool) {
         require(tokenA != tokenB, "TataSwap: IDENTICAL_ADDRESSES");
+        require(feeTier > 0 && feeTier <= 100000, "TataSwap: INVALID_FEE");
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         require(token0 != address(0), "TataSwap: ZERO_ADDRESS");
         require(getPool[token0][token1][feeTier] == address(0), "TataSwap: POOL_EXISTS");

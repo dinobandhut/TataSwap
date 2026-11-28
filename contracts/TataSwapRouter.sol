@@ -13,6 +13,7 @@ contract TataSwapRouter {
     }
 
     constructor(address _factory) {
+        require(_factory != address(0), "TataSwap: ZERO_FACTORY");
         factory = _factory;
     }
 
@@ -27,20 +28,20 @@ contract TataSwapRouter {
         address to,
         uint256 deadline
     ) external checkDeadline(deadline) returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
+        require(amountADesired >= amountAMin, "TataSwap: INSUFFICIENT_A_AMOUNT");
+        require(amountBDesired >= amountBMin, "TataSwap: INSUFFICIENT_B_AMOUNT");
+
         address pool = TataSwapFactory(factory).getPool(tokenA, tokenB, feeTier);
         if (pool == address(0)) {
             pool = TataSwapFactory(factory).createPool(tokenA, tokenB, feeTier);
         }
 
-        // Transfer tokens to pool
-        IERC20Minimal(tokenA).transferFrom(msg.sender, pool, amountADesired);
-        IERC20Minimal(tokenB).transferFrom(msg.sender, pool, amountBDesired);
+        require(IERC20Minimal(tokenA).transferFrom(msg.sender, pool, amountADesired), "TataSwap: TRANSFER_A_FAILED");
+        require(IERC20Minimal(tokenB).transferFrom(msg.sender, pool, amountBDesired), "TataSwap: TRANSFER_B_FAILED");
 
         liquidity = TataSwapPool(pool).mint(to);
         amountA = amountADesired;
         amountB = amountBDesired;
-        require(amountA >= amountAMin, "TataSwap: INSUFFICIENT_A_AMOUNT");
-        require(amountB >= amountBMin, "TataSwap: INSUFFICIENT_B_AMOUNT");
     }
 
     function swapExactTokensForTokens(
@@ -51,7 +52,7 @@ contract TataSwapRouter {
         address to,
         uint256 deadline
     ) external checkDeadline(deadline) returns (uint256[] memory amounts) {
-        require(path.length >= 2, "TataSwap: INVALID_PATH");
+        require(path.length >= 2 && feeTiers.length == path.length - 1, "TataSwap: INVALID_PATH");
         amounts = new uint256[](path.length);
         amounts[0] = amountIn;
 
@@ -59,21 +60,23 @@ contract TataSwapRouter {
             address pool = TataSwapFactory(factory).getPool(path[i], path[i + 1], feeTiers[i]);
             require(pool != address(0), "TataSwap: NO_POOL");
 
-            // transfer token to pool
-            IERC20Minimal(path[i]).transferFrom(i == 0 ? msg.sender : address(this), pool, amounts[i]);
+            if (i == 0) {
+                require(IERC20Minimal(path[i]).transferFrom(msg.sender, pool, amounts[i]), "TataSwap: TRANSFER_IN_FAILED");
+            } else {
+                require(IERC20Minimal(path[i]).transfer(pool, amounts[i]), "TataSwap: TRANSFER_HOP_FAILED");
+            }
 
-            // query pool output
             (address token0,) = path[i] < path[i + 1] ? (path[i], path[i + 1]) : (path[i + 1], path[i]);
             (uint112 reserve0, uint112 reserve1,) = TataSwapPool(pool).getReserves();
             (uint256 reserveIn, uint256 reserveOut) = path[i] == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
 
-            uint256 amountInWithFee = amounts[i] * 997;
-            uint256 numerator = amountInWithFee * reserveOut;
-            uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-            amounts[i + 1] = numerator / denominator;
+            uint256 amountInWithFee = amounts[i] * (1000000 - uint256(feeTiers[i]));
+            amounts[i + 1] = (amountInWithFee * reserveOut) / ((reserveIn * 1000000) + amountInWithFee);
 
             address recipient = i < path.length - 2 ? address(this) : to;
-            (uint256 amount0Out, uint256 amount1Out) = path[i] == token0 ? (uint256(0), amounts[i + 1]) : (amounts[i + 1], uint256(0));
+            (uint256 amount0Out, uint256 amount1Out) = path[i] == token0
+                ? (uint256(0), amounts[i + 1])
+                : (amounts[i + 1], uint256(0));
             TataSwapPool(pool).swap(amount0Out, amount1Out, recipient);
         }
 

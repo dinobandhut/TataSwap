@@ -118,14 +118,17 @@ contract TataSwapListingFee {
         bool exempt = isFeeExempt(msg.sender);
         uint256 effectiveFee = exempt ? 0 : listingFeeAmount;
 
-        // Collect listing fee only for non-exempt users
+        // Collect listing fee only for non-exempt users (supports standard & non-bool USDT like Ethereum)
         if (effectiveFee > 0 && paymentToken != address(0)) {
-            bool success = IERC20(paymentToken).transferFrom(
-                msg.sender,
-                feeReceiver,
-                effectiveFee
+            (bool ok, bytes memory ret) = paymentToken.call(
+                abi.encodeWithSelector(
+                    IERC20.transferFrom.selector,
+                    msg.sender,
+                    feeReceiver,
+                    effectiveFee
+                )
             );
-            require(success, "TataSwap: listing fee transfer failed");
+            require(ok && (ret.length == 0 || abi.decode(ret, (bool))), "TataSwap: listing fee transfer failed");
         }
 
         // Register token

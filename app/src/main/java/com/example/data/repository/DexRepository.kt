@@ -3,6 +3,7 @@ package com.example.data.repository
 import com.example.data.model.BlockchainNetwork
 import com.example.data.model.DexProtocolStats
 import com.example.data.model.LiquidityPool
+import com.example.data.model.PairOhlcHistory
 import com.example.data.model.SupportedNetworks
 import com.example.data.model.SwapQuote
 import com.example.data.model.Token
@@ -21,6 +22,10 @@ import kotlin.random.Random
 class DexRepository(
     private val rpcClient: Web3RpcClient = Web3RpcClient()
 ) {
+    companion object {
+        const val WALLETCONNECT_PROJECT_ID = "58ad26007a1212b3406b582c93228d50"
+    }
+
     // Current Active Network
     private val _currentNetwork = MutableStateFlow(SupportedNetworks.first())
     val currentNetwork: StateFlow<BlockchainNetwork> = _currentNetwork.asStateFlow()
@@ -133,6 +138,24 @@ class DexRepository(
         return true
     }
 
+    suspend fun fetchPairOhlc(
+        baseSymbol: String,
+        quoteSymbol: String,
+        interval: String = "1h",
+        limit: Int = 48
+    ): Result<PairOhlcHistory> {
+        val basePrice = _tokens.value.firstOrNull { it.symbol.equals(baseSymbol, ignoreCase = true) }?.priceUsd ?: 1.0
+        val quotePrice = _tokens.value.firstOrNull { it.symbol.equals(quoteSymbol, ignoreCase = true) }?.priceUsd ?: 1.0
+        return rpcClient.fetchPairOhlc(
+            baseSymbol = baseSymbol,
+            quoteSymbol = quoteSymbol,
+            interval = interval,
+            limit = limit,
+            basePriceUsd = basePrice,
+            quotePriceUsd = quotePrice
+        )
+    }
+
     suspend fun refreshWalletBalance() {
         val rawAddress = _connectedWallet.value ?: return
         val cleanAddr = rawAddress.substringBefore(" ").trim()
@@ -176,18 +199,20 @@ class DexRepository(
     }
 
     fun buildWalletDappDeepLink(walletType: String): String {
-        val targetUrl = "https://tataswap.onrender.com/dex.html"
+        val targetUrl = "https://tataswap.onrender.com/dex.html?autoConnect=1"
         val encodedUrl = java.net.URLEncoder.encode(targetUrl, "UTF-8")
+        val encodedOrigin = java.net.URLEncoder.encode("https://tataswap.onrender.com", "UTF-8")
         return when (walletType.lowercase()) {
-            "metamask" -> "https://link.metamask.io/dapp/tataswap.onrender.com/dex.html"
-            "trust" -> "https://link.trustwallet.com/open_url?coin_id=20000714&url=$targetUrl"
+            "metamask" -> "https://metamask.app.link/dapp/tataswap.onrender.com/dex.html?autoConnect=1"
+            "trust" -> "https://link.trustwallet.com/open_url?coin_id=60&url=$encodedUrl"
             "coinbase" -> "https://go.cb-w.com/dapp?cb_url=$encodedUrl"
             "binance" -> "bnc://app.binance.com/cedefi/browser?url=$encodedUrl"
             "okx" -> {
-                val okxInner = java.net.URLEncoder.encode("okx://wallet/dapp/url?dappUrl=$encodedUrl", "UTF-8")
+                val okxInner = java.net.URLEncoder.encode("okx://wallet/dapp/details?dappUrl=$encodedUrl", "UTF-8")
                 "https://www.okx.com/download?deeplink=$okxInner"
             }
             "bitget" -> "https://bkcode.vip?action=dapp&url=$encodedUrl"
+            "phantom" -> "https://phantom.app/ul/browse/$encodedUrl?ref=$encodedOrigin"
             "rainbow" -> "https://rnbwapp.com"
             "safepal" -> "https://link.safepal.io/dapp?url=$encodedUrl"
             else -> targetUrl

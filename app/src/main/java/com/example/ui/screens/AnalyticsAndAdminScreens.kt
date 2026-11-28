@@ -250,6 +250,32 @@ fun AdminDashboardScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary
                     )
+
+                    HorizontalDivider(color = DarkSurfaceBorder)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Reown / WalletConnect Project ID", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                            Text(
+                                text = com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = CryptoGreen,
+                                maxLines = 1
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(com.example.data.repository.DexRepository.WALLETCONNECT_PROJECT_ID))
+                            }
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy WalletConnect Project ID", tint = CryptoGreen, modifier = Modifier.size(18.dp))
+                        }
+                    }
                 }
             }
         }
