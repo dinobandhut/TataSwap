@@ -23,7 +23,8 @@ class DexRepository(
     private val rpcClient: Web3RpcClient = Web3RpcClient()
 ) {
     companion object {
-        const val WALLETCONNECT_PROJECT_ID = "58ad26007a1212b3406b582c93228d50"
+        val WALLETCONNECT_PROJECT_ID: String =
+            com.example.BuildConfig.WALLETCONNECT_PROJECT_ID.ifBlank { "58ad26007a1212b3406b582c93228d50" }
     }
 
     // Current Active Network

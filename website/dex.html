@@ -633,6 +633,20 @@
           <button onclick="saveContractConfig()" class="px-4 py-2 rounded-lg bg-cyan-500 text-black font-bold">Save Contract Addresses</button>
           <span id="cfgSaveMsg" class="text-emerald-400 ml-2 hidden">Saved!</span>
         </div>
+        <div class="card-darker rounded-xl p-4 space-y-3 text-xs border border-sky-500/30">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-white">Reown / WalletConnect Cloud Project ID</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">Active</span>
+          </div>
+          <div class="flex gap-2">
+            <input id="cfgWcProjectId" value="58ad26007a1212b3406b582c93228d50" placeholder="Reown / WalletConnect Project ID" class="flex-1 bg-[#090c12] border border-gray-700 rounded-lg p-2.5 font-mono text-emerald-300" />
+            <button onclick="copyAdminWcProjectId()" class="px-3 py-2 rounded-lg bg-[#131823] border border-gray-700 text-cyan-300 font-bold shrink-0">Copy</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="saveAdminWcProjectId()" class="px-4 py-2 rounded-lg bg-sky-500 text-black font-bold">Save Project ID</button>
+            <span id="cfgWcSaveMsg" class="text-emerald-400 hidden">Project ID Saved!</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -725,7 +739,7 @@
               <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-lg shrink-0">🔗</div>
               <div class="min-w-0">
                 <div class="text-xs font-extrabold text-white truncate">WalletConnect v2</div>
-                <div class="text-[11px] text-gray-400 truncate" id="subWc">Scan QR or pair any mobile Web3 wallet</div>
+                <div class="text-[11px] text-gray-400 truncate" id="subWc">ID: 58ad2600...28d50 • Scan QR or pair mobile wallet</div>
               </div>
             </div>
             <span class="text-xs font-bold text-cyan-400 shrink-0 ml-2" id="wcActionBadge">Connect</span>

@@ -69,8 +69,9 @@ let nativeBalanceVal = 0;
 let discoveredProviders = [];
 let activeProvider = null;
 const DEFAULT_WC_PROJECT_ID = "58ad26007a1212b3406b582c93228d50";
-let wcProjectIdCache = (localStorage.getItem("tataswap_wc_project_id") || DEFAULT_WC_PROJECT_ID).trim();
-if (!localStorage.getItem("tataswap_wc_project_id")) {
+const _storedWcId = (localStorage.getItem("tataswap_wc_project_id") || "").trim();
+let wcProjectIdCache = _storedWcId.length >= 16 ? _storedWcId : DEFAULT_WC_PROJECT_ID;
+if (_storedWcId !== wcProjectIdCache) {
   try { localStorage.setItem("tataswap_wc_project_id", wcProjectIdCache); } catch {}
 }
 
@@ -1464,8 +1465,10 @@ function loadContractConfig() {
   const cfg = getContractConfig();
   const rEl = document.getElementById("cfgRouterAddr");
   const lEl = document.getElementById("cfgListingAddr");
+  const wcEl = document.getElementById("cfgWcProjectId");
   if (rEl) rEl.value = cfg.router;
   if (lEl) lEl.value = cfg.listing;
+  if (wcEl) wcEl.value = wcProjectIdCache || DEFAULT_WC_PROJECT_ID;
 }
 
 function saveContractConfig() {
@@ -1477,6 +1480,31 @@ function saveContractConfig() {
   if (msg) {
     msg.classList.remove("hidden");
     setTimeout(() => msg.classList.add("hidden"), 2500);
+  }
+}
+
+function saveAdminWcProjectId() {
+  const raw = (document.getElementById("cfgWcProjectId")?.value || "").trim();
+  const validId = raw.length >= 16 ? raw : DEFAULT_WC_PROJECT_ID;
+  wcProjectIdCache = validId;
+  try { localStorage.setItem("tataswap_wc_project_id", validId); } catch {}
+  const cfgInput = document.getElementById("cfgWcProjectId");
+  const modalInput = document.getElementById("wcProjectIdInput");
+  const subWc = document.getElementById("subWc");
+  if (cfgInput) cfgInput.value = validId;
+  if (modalInput) modalInput.value = validId;
+  if (subWc) subWc.innerText = `ID: ${validId.slice(0, 8)}...${validId.slice(-5)} • Scan QR or pair mobile wallet`;
+  const msg = document.getElementById("cfgWcSaveMsg");
+  if (msg) {
+    msg.classList.remove("hidden");
+    setTimeout(() => msg.classList.add("hidden"), 2500);
+  }
+}
+
+function copyAdminWcProjectId() {
+  const val = (document.getElementById("cfgWcProjectId")?.value || wcProjectIdCache || DEFAULT_WC_PROJECT_ID).trim();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(val).catch(() => {});
   }
 }
 
